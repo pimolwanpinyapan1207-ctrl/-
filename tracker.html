@@ -301,14 +301,26 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 
 <script>
 (function () {
-  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด", "อากรแสตมป์": "" };
+  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด" };
   const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company
-  const NONE = "ไม่มีคู่เทียบ";  // a flag, not a document: no quantity, excluded from totals
-  const FLAGS = new Set([NONE, "อากรแสตมป์"]);  // tick-only items: no quantity, no unit, not in totals
-  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name in UNITS ? UNITS[name] : "ฉบับ");
-  const qtyLabel = (i, n) => i + " " + n + (unitOf(i) ? " " + unitOf(i) : "");  // อากรแสตมป์ has no unit
-  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME", "อากรแสตมป์"];
+  const NONE = "ไม่มีคู่เทียบ";
+  const STAMP = "อากรแสตมป์", STAMP_YES = "มีอากรแสตมป์", STAMP_NO = "ไม่มีอากรแสตมป์";
+  // tick-only items: no quantity, no unit, not in totals ("อากรแสตมป์" alone is from older records)
+  const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO]);
+  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : UNITS[name] || "ฉบับ");
+  const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
+  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
   const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);
+  // form layout; x = exclusion group, solo = ticking it clears the others in its group (and vice versa)
+  const FORM = [
+    ...ITEMS.map((n) => ({ name: n, label: n })),
+    { head: STAMP },
+    { name: STAMP_YES, label: "มี", x: "stamp", solo: true },
+    { name: STAMP_NO, label: "ไม่มี", x: "stamp", solo: true },
+    { head: GROUP },
+    ...SUBS.map((n) => ({ name: n, label: n.slice(GROUP.length + 1), x: "cmp" })),
+    { name: NONE, label: NONE, x: "cmp", solo: true },
+  ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
   let rows = [];          // [{id, ...data}]
@@ -551,29 +563,24 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   }
 
   // ---------- form ----------
-  ITEMS.concat(SUBS, [NONE]).forEach((name, i) => {
-    if (name === NONE) {
-      const box = el("div", "item sub none"); const l = el("label"); const cb = document.createElement("input");
-      cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
-      const n = document.createElement("input"); n.type = "hidden"; n.id = "qty" + i; n.value = "1";
-      l.append(cb, document.createTextNode(name)); box.append(l, n); $("itemChecks").append(box);
-      // "no comparison quotes" and the competitor sub-items exclude each other
-      cb.addEventListener("change", () => { if (cb.checked) document.querySelectorAll("#itemChecks .item.sub:not(.none) input[type=checkbox]").forEach((s) => { if (s.checked) { s.checked = false; s.dispatchEvent(new Event("change")); } }); });
-      return;
-    }
-    const isSub = name.startsWith(GROUP);
-    if (name === SUBS[0]) $("itemChecks").append(el("div", "group-head", GROUP));
-    const box = el("div", "item" + (isSub ? " sub" : "")); const l = el("label"); const cb = document.createElement("input");
+  let idx = 0;
+  FORM.forEach((f) => {
+    if (f.head) { $("itemChecks").append(el("div", "group-head", f.head)); return; }
+    const i = idx++, name = f.name;
+    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
-    l.append(cb, document.createTextNode(isSub ? name.slice(GROUP.length + 1) : name));
+    if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
+    l.append(cb, document.createTextNode(f.label));
     const n = document.createElement("input");
     n.type = "number"; n.min = "1"; n.step = "1"; n.value = "1"; n.id = "qty" + i; n.className = "qty";
     n.inputMode = "numeric"; n.disabled = true; n.setAttribute("aria-label", "จำนวน " + name);
     cb.addEventListener("change", () => {
       n.disabled = !cb.checked; if (cb.checked && !(Number(n.value) >= 1)) n.value = "1";
-      if (isSub && cb.checked) { const none = document.querySelector("#itemChecks .item.none input[type=checkbox]"); if (none) none.checked = false; }
+      if (cb.checked && f.x) document.querySelectorAll('#itemChecks input[type=checkbox][data-x="' + f.x + '"]').forEach((o) => {
+        if (o !== cb && o.checked && (f.solo || o.dataset.solo)) { o.checked = false; o.dispatchEvent(new Event("change")); }
+      });
     });
-    if (FLAGS.has(name)) { n.type = "hidden"; n.value = "1"; box.append(l, n); }
+    if (FLAGS.has(name)) { n.type = "hidden"; box.append(l, n); }
     else box.append(l, n, el("span", "unit", unitOf(name)));
     $("itemChecks").append(box);
   });

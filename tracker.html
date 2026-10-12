@@ -20,6 +20,9 @@
   --item-bg: #C0E4F6;  /* document-set items, same in both themes */
   --item-line: #A3D3EC;
   --item-ink: #1a4a66;
+  --stamp-bg: #FFF4C7;  /* stamp-duty boxes, same in both themes */
+  --stamp-line: #EBD98C;
+  --stamp-ink: #5c4a0e;
   --item-font: "Mitr", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
   --display: "Bai Jamjuree", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
   --body: "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
@@ -181,6 +184,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .checks .group-head { grid-column: 1 / -1; font-family: var(--item-font); font-size: .88rem; color: var(--item-ink); margin-top: 6px; padding-left: 2px; }
 .checks .item.sub { margin-left: 14px; }
 .checks .item.none { background: var(--item-bg); }
+.checks .item.stamp, .chip.item-chip.stamp { background: var(--stamp-bg); border-color: var(--stamp-line); color: var(--stamp-ink); }
 .checks .item .qty { background: #ffffff; color: var(--item-ink); border-color: var(--item-line); }
 .checks .item input[type=checkbox] { accent-color: var(--item-ink); }
 .sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
@@ -499,7 +503,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     meta.append(row1, el("div", "cust", r.customer || "—"));
     if (r.items && r.items.length) {
       const ch = el("div", "chips");
-      r.items.forEach((i) => ch.append(el("span", "chip item-chip", itemLabel(r, i))));
+      r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : ""), itemLabel(r, i))));
       if (totalText(r)) ch.append(el("span", "chip total", totalText(r)));
       meta.append(ch);
     }
@@ -568,7 +572,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   FORM.forEach((f) => {
     if (f.head) { $("itemChecks").append(el("div", "group-head", f.head)); return; }
     const i = idx++, name = f.name;
-    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "")); const l = el("label"); const cb = document.createElement("input");
+    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
     if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
     l.append(cb, document.createTextNode(f.label));

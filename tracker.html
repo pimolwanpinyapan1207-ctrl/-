@@ -377,7 +377,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   const CMP_DOCS = "เอกสารบริษัทคู่เทียบ", CMP_DOCS_NONE = "ไม่มีเอกสารบริษัทคู่เทียบ";
   const CMP_DOC_SUBS = ["ป.อินเตอร์", "ประยูร", "ฟีนิกซ์"].map((s) => CMP_DOCS + " " + s);
   const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO, CMP_DOCS_NONE]);
-  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : UNITS[name] || "ฉบับ");
+  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name.startsWith(CMP_DOCS) ? "ชุด" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
   const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
   const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);

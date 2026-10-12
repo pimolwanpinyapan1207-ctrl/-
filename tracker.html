@@ -20,6 +20,9 @@
   --item-bg: #C0E4F6;  /* document-set items, same in both themes */
   --item-line: #A3D3EC;
   --item-ink: #1a4a66;
+  --cmp-bg: #C6D9BB;  /* comparison-quote boxes, same in both themes */
+  --cmp-line: #A9C29A;
+  --cmp-ink: #2f4424;
   --stamp-bg: #FFF4C7;  /* stamp-duty boxes, same in both themes */
   --stamp-line: #EBD98C;
   --stamp-ink: #5c4a0e;
@@ -185,6 +188,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .checks .item.sub { margin-left: 14px; }
 .checks .item.none { background: var(--item-bg); }
 .checks .item.stamp, .chip.item-chip.stamp { background: var(--stamp-bg); border-color: var(--stamp-line); color: var(--stamp-ink); }
+.checks .item.cmp, .chip.item-chip.cmp { background: var(--cmp-bg); border-color: var(--cmp-line); color: var(--cmp-ink); }
 .checks .item .qty { background: #ffffff; color: var(--item-ink); border-color: var(--item-line); }
 .checks .item input[type=checkbox] { accent-color: var(--item-ink); }
 .sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
@@ -436,7 +440,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     if (Object.keys(d.docs).length) {
       const sec = el("section", "rep-sec"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
       const ch = el("div", "chips");
-      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip", qtyLabel(i, n))));
+      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip" + (i.includes(GROUP) ? " cmp" : ""), qtyLabel(i, n))));
       ch.append(el("span", "chip total", totalText({ items: Object.keys(d.docs), itemQty: d.docs })));
       sec.append(ch); body.append(sec);
     }
@@ -503,7 +507,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     meta.append(row1, el("div", "cust", r.customer || "—"));
     if (r.items && r.items.length) {
       const ch = el("div", "chips");
-      r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : ""), itemLabel(r, i))));
+      r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : "") + (i.includes(GROUP) ? " cmp" : ""), itemLabel(r, i))));
       if (totalText(r)) ch.append(el("span", "chip total", totalText(r)));
       meta.append(ch);
     }
@@ -572,7 +576,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   FORM.forEach((f) => {
     if (f.head) { $("itemChecks").append(el("div", "group-head", f.head)); return; }
     const i = idx++, name = f.name;
-    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "")); const l = el("label"); const cb = document.createElement("input");
+    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" ? " cmp" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
     if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
     l.append(cb, document.createTextNode(f.label));

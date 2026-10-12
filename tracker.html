@@ -200,6 +200,27 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .chip.item-chip.stamp { background: var(--stamp-bg); border-color: var(--stamp-line); color: var(--stamp-ink); }
 .chip.item-chip.cmp { background: var(--cmp-bg); border-color: var(--cmp-line); color: var(--cmp-ink); }
 .chip.total { background: transparent; color: var(--ink); border-style: dashed; border-color: var(--muted); }
+/* depth: soft top highlight + layered tinted shadows; ticked boxes rise, hover lifts */
+.checks .item {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c-bg) 16%, var(--surface)) 0%, color-mix(in srgb, var(--c-bg) 40%, var(--surface)) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 1px 2px rgba(25, 20, 45, .06), 0 3px 8px -4px color-mix(in srgb, var(--c-line) 55%, transparent);
+  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+.checks .item:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 2px 4px rgba(25, 20, 45, .07), 0 8px 16px -8px var(--c-line); }
+.checks .item:has(input[type=checkbox]:checked) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c-bg) 70%, #ffffff) 0%, var(--c-bg) 55%, color-mix(in srgb, var(--c-bg) 88%, var(--c-ink)) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .65), inset 0 -1px 0 color-mix(in srgb, var(--c-ink) 12%, transparent),
+    0 2px 4px -1px color-mix(in srgb, var(--c-ink) 22%, transparent), 0 10px 20px -10px var(--c-line);
+}
+.checks .item:has(input[type=checkbox]:checked):hover { transform: translateY(-2px); }
+.checks .item:active { transform: translateY(0); }
+.checks input[type=checkbox] { box-shadow: inset 0 1px 2px rgba(25, 20, 45, .14); }
+.checks input[type=checkbox]:checked { box-shadow: 0 1px 3px color-mix(in srgb, var(--c-ink) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.checks .qty:not(:disabled) { box-shadow: inset 0 1px 2px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .6); }
+.chip.item-chip { background-image: linear-gradient(180deg, rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 1px 2px rgba(25, 20, 45, .08), 0 2px 6px -3px rgba(25, 20, 45, .18); }
+.card { box-shadow: 0 1px 2px rgba(25, 20, 45, .05), 0 6px 16px -10px rgba(25, 20, 45, .22); }
+@media (prefers-reduced-motion: reduce) { .checks .item, .checks .item:hover, .checks .item:has(input[type=checkbox]:checked):hover { transition: none; transform: none; } }
 .sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }

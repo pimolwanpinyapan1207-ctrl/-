@@ -20,9 +20,9 @@
   --item-bg: #DD94EC;  /* document-set items, same in both themes */
   --item-line: #C977DB;
   --item-ink: #3d1347;
-  --cdoc-bg: #FCAD7C;  /* competitor company-document boxes, same in both themes */
-  --cdoc-line: #E68A52;
-  --cdoc-ink: #4f2208;
+  --cdoc-bg: #F58A4E;  /* competitor company-document boxes, same in both themes */
+  --cdoc-line: #D4672A;
+  --cdoc-ink: #2e1002;
   --cmp-bg: #C6D9BB;  /* comparison-quote boxes, same in both themes */
   --cmp-line: #A9C29A;
   --cmp-ink: #2f4424;
@@ -228,6 +228,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .chip.item-chip.stamp { background: var(--stamp-bg); border-color: var(--stamp-line); color: var(--stamp-ink); }
 .chip.item-chip.cmp { background: var(--cmp-bg); border-color: var(--cmp-line); color: var(--cmp-ink); }
 .chip.item-chip.cdoc { background: var(--cdoc-bg); border-color: var(--cdoc-line); color: var(--cdoc-ink); }
+.chip.item-chip.cdoc, .checks .item.cdoc:has(input[type=checkbox]:checked) { font-weight: 500; }
 .chip.total { background: transparent; color: var(--ink); border-style: dashed; border-color: var(--muted); }
 /* depth: soft top highlight + layered tinted shadows; ticked boxes rise, hover lifts */
 .checks .item {

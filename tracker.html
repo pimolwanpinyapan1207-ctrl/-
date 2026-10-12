@@ -1,6 +1,6 @@
 <title>ติดตามชุดเบิก</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Mitr:wght@300;400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;500;600;700&family=Mitr:wght@300;400&display=swap">
 <style>
 /* Layout: a single working column — status strip that doubles as filters, then a ledger of document-set cards, each with a 3-stop delivery track (เตรียม → ส่งออก → ถึงลูกค้า). */
 :root {
@@ -27,6 +27,7 @@
   --stamp-line: #EBD98C;
   --stamp-ink: #5c4a0e;
   --item-font: "Mitr", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --table-font: "Sarabun", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;  /* the Thai official-document face, for every table */
   --display: "Bai Jamjuree", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
   --body: "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -142,6 +143,11 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .tbl th { text-align: left; font-weight: 500; font-size: .78rem; color: var(--muted); letter-spacing: .02em; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .tbl td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; font-variant-numeric: tabular-nums; }
 .tbl tr:last-child td { border-bottom: 0; }
+.tbl table, .tbl table *, .parcel-list, .parcel-list * { font-family: var(--table-font); }
+.tbl table { font-size: .98rem; }
+.tbl th { font-weight: 600; font-size: .85rem; color: var(--ink); letter-spacing: 0; }
+.tbl td .docno, .parcel-list .docno, .tbl .trk, .parcel-list .trk { font-weight: 600; letter-spacing: .02em; }
+.parcel-list .cust-name { font-weight: 700; font-size: 1.05rem; }
 .trk-cell { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .btn.copy { padding: 2px 8px; font-size: .78rem; }
 .parcels-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
@@ -151,7 +157,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .parcel-list li > * { vertical-align: middle; }
 .parcel-list li { display: list-item; }
 .parcel-list .who { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-right: 12px; min-width: 12em; }
-.parcel-list .cust-name { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+
 .rep-text { width: 100%; min-height: 200px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-family: var(--mono); font-size: .85rem; }
 
 .empty-state { text-align: center; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; gap: 10px; justify-items: center; }

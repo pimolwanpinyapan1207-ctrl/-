@@ -368,7 +368,9 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   const NONE = "ไม่มีคู่เทียบ";
   const STAMP = "อากรแสตมป์", STAMP_YES = "มีอากรแสตมป์", STAMP_NO = "ไม่มีอากรแสตมป์";
   // tick-only items: no quantity, no unit, not in totals ("อากรแสตมป์" alone is from older records)
-  const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO]);
+  const CMP_DOCS = "เอกสารบริษัทคู่เทียบ", CMP_DOCS_NONE = "ไม่มีเอกสารบริษัทคู่เทียบ";
+  const CMP_DOC_SUBS = ["ป.อินเตอร์", "ประยูร", "ฟีนิกซ์"].map((s) => CMP_DOCS + " " + s);
+  const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO, CMP_DOCS_NONE]);
   const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
   const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
@@ -382,6 +384,9 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     { head: GROUP },
     ...SUBS.map((n) => ({ name: n, label: n.slice(GROUP.length + 1), x: "cmp" })),
     { name: NONE, label: NONE, x: "cmp", solo: true },
+    { head: CMP_DOCS },
+    ...CMP_DOC_SUBS.map((n) => ({ name: n, label: n.slice(CMP_DOCS.length + 1), x: "cmpdoc" })),
+    { name: CMP_DOCS_NONE, label: "ไม่มี", x: "cmpdoc", solo: true },
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
@@ -629,7 +634,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   FORM.forEach((f) => {
     if (f.head) { $("itemChecks").append(el("div", "group-head " + (f.head === STAMP ? "stamp" : "cmp"), f.head)); return; }
     const i = idx++, name = f.name;
-    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" ? " cmp" : "")); const l = el("label"); const cb = document.createElement("input");
+    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" || f.x === "cmpdoc" ? " cmp" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
     if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
     l.append(cb, document.createTextNode(f.label));

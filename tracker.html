@@ -1,0 +1,726 @@
+<title>ติดตามชุดเบิก</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Mitr:wght@300;400&display=swap">
+<style>
+/* Layout: a single working column — status strip that doubles as filters, then a ledger of document-set cards, each with a 3-stop delivery track (เตรียม → ส่งออก → ถึงลูกค้า). */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #18212e;
+  --muted: #5d6878;
+  --line: #dde2ea;
+  --accent: #1d4f91;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5edf8;
+  --wait: #a35f00;   --wait-soft: #fbf0dd;
+  --move: #1d64b8;   --move-soft: #e3eefb;
+  --done: #23794a;   --done-soft: #e0f2e7;
+  --late: #b4322c;   --late-soft: #fbe5e3;
+  --overlay: rgba(16, 24, 36, .45);
+  --item-bg: #C0E4F6;  /* document-set items, same in both themes */
+  --item-line: #A3D3EC;
+  --item-ink: #1a4a66;
+  --item-font: "Mitr", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --display: "Bai Jamjuree", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --body: "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161e; --surface: #19202b; --ink: #e6eaf1; --muted: #9aa5b5; --line: #2b3442;
+    --accent: #7fb0ef; --accent-ink: #0d1520; --accent-soft: #1d2a3d;
+    --wait: #e9a646; --wait-soft: #33281a; --move: #78aef0; --move-soft: #1b2a3e;
+    --done: #63c48d; --done-soft: #183026; --late: #f07c74; --late-soft: #3a1f1e;
+    --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161e; --surface: #19202b; --ink: #e6eaf1; --muted: #9aa5b5; --line: #2b3442;
+  --accent: #7fb0ef; --accent-ink: #0d1520; --accent-soft: #1d2a3d;
+  --wait: #e9a646; --wait-soft: #33281a; --move: #78aef0; --move-soft: #1b2a3e;
+  --done: #63c48d; --done-soft: #183026; --late: #f07c74; --late-soft: #3a1f1e;
+  --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+header.top h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: .01em; }
+header.top p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 5px 10px; font-size: .85rem; }
+.btn.danger { color: var(--late); }
+a.trk { color: var(--accent); font-family: var(--mono); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+a.trk:hover { text-decoration-thickness: 2px; }
+a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align-items: center; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.notice { padding: 10px 14px; border-radius: 8px; background: var(--wait-soft); color: var(--wait); font-size: .9rem; }
+
+/* status strip */
+.strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.stat { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.stat .n { font-family: var(--display); font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .l { font-size: .82rem; color: var(--muted); }
+.stat[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.stat.wait .n { color: var(--wait); } .stat.move .n { color: var(--move); }
+.stat.done .n { color: var(--done); } .stat.late .n { color: var(--late); }
+@media (max-width: 640px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat.all { grid-column: span 2; } }
+
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tools input[type=search] { flex: 1 1 240px; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.tools label { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.tools select { padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+/* ledger */
+.list { display: grid; gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 16px; align-items: start; }
+.card.is-late { border-color: var(--late); }
+@media (max-width: 760px) { .card { grid-template-columns: minmax(0, 1fr); } }
+.meta { display: grid; gap: 4px; min-width: 0; }
+.meta .row1 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.docno { font-family: var(--mono); font-weight: 500; font-size: .95rem; }
+.cust { font-family: var(--display); font-weight: 600; font-size: 1.08rem; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: .75rem; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.sub { font-size: .85rem; color: var(--muted); overflow-wrap: anywhere; }
+.pill { font-size: .75rem; font-weight: 600; padding: 2px 9px; border-radius: 99px; letter-spacing: .02em; }
+.pill.wait { background: var(--wait-soft); color: var(--wait); }
+.pill.move { background: var(--move-soft); color: var(--move); }
+.pill.done { background: var(--done-soft); color: var(--done); }
+.pill.late { background: var(--late-soft); color: var(--late); }
+
+.track { display: grid; gap: 10px; min-width: 0; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); position: relative; }
+.step { display: grid; gap: 2px; justify-items: start; position: relative; padding-top: 18px; min-width: 0; }
+.step::before { content: ""; position: absolute; top: 5px; left: 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); z-index: 1; }
+.step::after { content: ""; position: absolute; top: 10px; left: 12px; right: 0; height: 2px; background: var(--line); }
+.step:last-child::after { display: none; }
+.step.on::before { background: var(--done); border-color: var(--done); }
+.step.on::after { background: var(--done); }
+.step.on.next-off::after { background: linear-gradient(90deg, var(--done), var(--line)); }
+.step .t { font-size: .75rem; color: var(--muted); letter-spacing: .02em; }
+.step .d { font-weight: 600; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.step .w { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; padding-right: 6px; }
+.step.empty .d { color: var(--muted); font-weight: 400; }
+.cardacts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+
+/* view tabs + daily report */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab { border: 0; background: none; padding: 8px 14px; font-family: var(--display); font-weight: 600; font-size: 1rem; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.listview { display: grid; gap: 20px; }
+.report { display: grid; gap: 16px; }
+.rep-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.datebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.datebar input { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.rep-title { font-size: 1.25rem; font-weight: 600; }
+.rep-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 640px) { .rep-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rep-sec { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.rep-sec h3 { font-size: 1.02rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.rep-body { display: grid; gap: 12px; }
+.rep-empty { margin: 0; color: var(--muted); font-size: .9rem; }
+.tbl { overflow-x: auto; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.tbl th { text-align: left; font-weight: 500; font-size: .78rem; color: var(--muted); letter-spacing: .02em; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; font-variant-numeric: tabular-nums; }
+.tbl tr:last-child td { border-bottom: 0; }
+.trk-cell { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.btn.copy { padding: 2px 8px; font-size: .78rem; }
+.parcels-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.parcel-list { margin: 0; padding: 0 0 0 1.4em; display: grid; gap: 0; }
+.parcel-list li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.parcel-list li:last-child { border-bottom: 0; }
+.parcel-list li > * { vertical-align: middle; }
+.parcel-list li { display: list-item; }
+.parcel-list .who { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-right: 12px; min-width: 12em; }
+.parcel-list .cust-name { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+.rep-text { width: 100%; min-height: 200px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-family: var(--mono); font-size: .85rem; }
+
+.empty-state { text-align: center; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; gap: 10px; justify-items: center; }
+.empty-state h2 { color: var(--ink); font-size: 1.2rem; }
+
+/* sheet */
+.overlay { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; padding: 16px; z-index: 10; }
+.sheet { background: var(--surface); border-radius: 14px; width: min(640px, 100%); max-height: calc(100% - 16px); overflow: auto; padding: 20px; display: grid; gap: 16px; }
+.sheet h2 { font-size: 1.25rem; }
+.fieldset { display: grid; gap: 10px; border: 0; padding: 0; margin: 0; }
+.fieldset legend { font-family: var(--display); font-weight: 600; font-size: .8rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; padding: 0; margin-bottom: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.f { display: grid; gap: 4px; min-width: 0; }
+.f span { font-size: .82rem; color: var(--muted); }
+.f input, .f select, .f textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
+.f textarea { min-height: 60px; resize: vertical; }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.checks .item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px 4px 10px; font-size: .88rem; min-width: 0; }
+.checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; flex: 1; min-width: 0; }
+.checks input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; padding: 0; margin: 0; flex: none; }
+.checks label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.checks .qty { width: 4.2em; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); text-align: right; font-variant-numeric: tabular-nums; }
+.checks .qty:disabled { opacity: .4; }
+.checks .unit { font-size: .8rem; color: var(--muted); }
+/* every document-set label uses one size, weight and line height */
+.chip.item-chip, .chip.total { font-family: var(--item-font); font-weight: 400; font-size: .82rem; line-height: 1.6; padding: 2px 10px; border: 1px solid var(--item-line); }
+.chip.item-chip { background: var(--item-bg); color: var(--item-ink); }
+.chip.total { background: transparent; color: var(--item-ink); }
+.checks .item { background: var(--item-bg); border-color: var(--item-line); color: var(--item-ink); font-family: var(--item-font); font-weight: 400; font-size: .88rem; line-height: 1.6; }
+.checks .item label, .checks .item .qty, .checks .item .unit { font: inherit; }
+.checks .item .unit { color: var(--item-ink); width: 2.4em; flex: none; }
+.checks .group-head { grid-column: 1 / -1; font-family: var(--item-font); font-size: .88rem; color: var(--item-ink); margin-top: 6px; padding-left: 2px; }
+.checks .item.sub { margin-left: 14px; }
+.checks .item.none { background: var(--surface); border-style: dashed; }
+.checks .item .qty { background: #ffffff; color: var(--item-ink); border-color: var(--item-line); }
+.checks .item input[type=checkbox] { accent-color: var(--item-ink); }
+.sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
+.err { color: var(--late); font-size: .85rem; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: .9rem; z-index: 20; }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>ติดตามเอกสารชุดเบิก</h1>
+      <p>ส่งออกวันไหน · ถึงลูกค้าวันไหน · ใครเป็นผู้รับ</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="exportBtn" type="button">ส่งออกเป็น Excel (CSV)</button>
+      <button class="btn primary" id="addBtn" type="button">+ เพิ่มชุดเบิก</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab" id="tab-list" aria-selected="true">รายการชุดเบิก</button>
+    <button type="button" class="tab" role="tab" id="tab-report" aria-selected="false">รายงานประจำวัน</button>
+  </nav>
+
+  <section class="report" id="reportView" hidden>
+    <div class="rep-head">
+      <div class="datebar">
+        <button class="btn small" type="button" id="prevDay" aria-label="วันก่อนหน้า">‹</button>
+        <input type="date" id="repDate" aria-label="วันที่ของรายงาน">
+        <button class="btn small" type="button" id="nextDay" aria-label="วันถัดไป">›</button>
+        <button class="btn small" type="button" id="todayBtn">วันนี้</button>
+      </div>
+      <button class="btn" type="button" id="copyReport">คัดลอกรายงานเป็นข้อความ</button>
+    </div>
+    <h2 class="rep-title" id="repTitle"></h2>
+    <div class="rep-stats" id="repStats"></div>
+    <div class="rep-body" id="repBody"></div>
+    <textarea id="repText" class="rep-text" readonly hidden aria-label="ข้อความรายงาน"></textarea>
+  </section>
+
+  <div id="listView" class="listview">
+  <div class="strip" id="strip">
+    <button class="stat all" type="button" data-f="all" aria-pressed="true"><span class="n" id="c-all">0</span><span class="l">ทั้งหมด</span></button>
+    <button class="stat wait" type="button" data-f="wait" aria-pressed="false"><span class="n" id="c-wait">0</span><span class="l">ยังไม่ส่งออก</span></button>
+    <button class="stat move" type="button" data-f="move" aria-pressed="false"><span class="n" id="c-move">0</span><span class="l">ส่งแล้ว รอลูกค้ารับ</span></button>
+    <button class="stat late" type="button" data-f="late" aria-pressed="false"><span class="n" id="c-late">0</span><span class="l">ส่งเกินกำหนด ยังไม่ถึง</span></button>
+    <button class="stat done" type="button" data-f="done" aria-pressed="false"><span class="n" id="c-done">0</span><span class="l">ลูกค้าได้รับแล้ว</span></button>
+  </div>
+
+  <div class="tools">
+    <input type="search" id="q" placeholder="ค้นหาเลขที่เอกสาร ลูกค้า เลขพัสดุ หรือชื่อผู้รับ">
+    <label for="lateDays">ถือว่าเกินกำหนดเมื่อส่งแล้วเกิน
+      <select id="lateDays"><option>2</option><option selected>3</option><option>5</option><option>7</option></select> วัน</label>
+  </div>
+
+  <div class="list" id="list">
+    <div class="empty-state">
+      <h2>กำลังโหลดรายการชุดเบิก…</h2>
+    </div>
+  </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <form class="sheet" id="form" novalidate>
+    <h2 id="formTitle">เพิ่มชุดเบิก</h2>
+
+    <fieldset class="fieldset" id="fs-doc">
+      <legend>ข้อมูลชุดเอกสาร</legend>
+      <div class="grid2">
+        <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off"></label>
+        <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
+        <label class="f"><span>ยอดเงิน (บาท)</span><input id="amount" inputmode="decimal" autocomplete="off"></label>
+        <label class="f"><span>วันที่เตรียมชุดเอกสาร</span><input id="preparedDate" type="date"></label>
+      </div>
+      <datalist id="custList"></datalist>
+      <div class="f"><span>เอกสารในชุด</span>
+        <div class="checks" id="itemChecks"></div>
+      </div>
+    </fieldset>
+
+    <fieldset class="fieldset" id="fs-ship">
+      <legend>การส่งออก</legend>
+      <div class="grid2">
+        <label class="f"><span>วันที่ส่งออก</span><input id="shippedDate" type="date"></label>
+        <label class="f"><span>วิธีส่ง</span>
+          <select id="method"><option value="">— เลือก —</option><option>ไปรษณีย์ EMS</option><option>ไปรษณีย์ลงทะเบียน</option><option>Kerry / Flash / J&amp;T</option><option>แมสเซ็นเจอร์</option><option>พนักงานส่งเอง</option><option>ลูกค้ามารับเอง</option></select></label>
+        <label class="f"><span>เลขพัสดุ EMS</span><input id="tracking" autocomplete="off" placeholder="เช่น EF123456789TH"></label>
+        <label class="f"><span>ผู้ส่ง</span><input id="sender" autocomplete="off"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="fieldset" id="fs-recv">
+      <legend>การรับเอกสาร</legend>
+      <div class="grid2">
+        <label class="f"><span>วันที่ถึงลูกค้า</span><input id="deliveredDate" type="date"></label>
+        <label class="f"><span>ผู้รับเอกสาร</span><input id="receiver" autocomplete="off" placeholder="เช่น คุณสมใจ (ฝ่ายบัญชี)"></label>
+      </div>
+    </fieldset>
+
+    <label class="f" id="noteWrap"><span>หมายเหตุ</span><textarea id="note"></textarea></label>
+
+    <div class="err" id="formErr" hidden></div>
+    <div class="foot">
+      <button class="btn danger small" type="button" id="delBtn" hidden>ลบรายการนี้</button>
+      <div class="right">
+        <button class="btn" type="button" id="cancelBtn">ยกเลิก</button>
+        <button class="btn primary" type="submit" id="saveBtn">บันทึก</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด", "อากรแสตมป์": "ดวง" };
+  const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company
+  const NONE = "ไม่มีคู่เทียบ";  // a flag, not a document: no quantity, excluded from totals
+  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : UNITS[name] || "ฉบับ");
+  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME", "อากรแสตมป์"];
+  const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);
+  const $ = (id) => document.getElementById(id);
+  let db = null, col = null, canWrite = true;
+  let rows = [];          // [{id, ...data}]
+  let filter = "all";
+  let editingId = null, mode = "full", delArmed = false;
+
+  // ---------- dates ----------
+  const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+  const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const thDate = (s) => s ? parse(s).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "";
+  const daysSince = (s) => Math.round((parse(today()) - parse(s)) / 86400000);
+  const lateDays = () => Number($("lateDays").value);
+
+  function statusOf(r) {
+    if (r.deliveredDate) return "done";
+    if (r.shippedDate) return daysSince(r.shippedDate) > lateDays() ? "late" : "move";
+    return "wait";
+  }
+  // Sets normally go by EMS, so any tracking number links to Thailand Post unless another carrier was chosen
+  const isPost = (r) => !!r.tracking && !/Kerry|แมสเซ็นเจอร์|ส่งเอง|มารับ/.test(r.method || "");
+  const postUrl = (t) => "https://track.thailandpost.co.th/?trackNumber=" + encodeURIComponent(t.replace(/\s+/g, "").toUpperCase());
+  const LABEL = { wait: "ยังไม่ส่งออก", move: "ส่งแล้ว รอรับ", late: "เกินกำหนด", done: "ถึงลูกค้าแล้ว" };
+
+  // ---------- render ----------
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  // ---------- daily report ----------
+  const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 86400000);
+  const longDate = (s) => parse(s).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const createdDay = (r) => r.preparedDate || String(r.createdAt || "").slice(0, 10) || "0000-00-00";
+
+  function reportData(D) {
+    const shipped = rows.filter((r) => r.shippedDate === D);
+    const delivered = rows.filter((r) => r.deliveredDate === D);
+    const added = rows.filter((r) => createdDay(r) === D);
+    const pending = rows.filter((r) => createdDay(r) <= D && (!r.shippedDate || r.shippedDate > D));
+    const transit = rows.filter((r) => r.shippedDate && r.shippedDate <= D && (!r.deliveredDate || r.deliveredDate > D));
+    const late = transit.filter((r) => daysBetween(r.shippedDate, D) > lateDays());
+    const docs = {};
+    shipped.forEach((r) => (r.items || []).filter((i) => i !== NONE).forEach((i) => { docs[i] = (docs[i] || 0) + qtyOf(r, i); }));
+    const byCustomer = (a, b) => String(a.customer).localeCompare(String(b.customer), "th");
+    [shipped, delivered, added, pending, transit].forEach((l) => l.sort(byCustomer));
+    late.sort((a, b) => a.shippedDate.localeCompare(b.shippedDate));
+    return { shipped, delivered, added, pending, transit, late, docs };
+  }
+
+  function repTable(title, tone, list, cols, emptyMsg) {
+    const sec = el("section", "rep-sec");
+    const h = el("h3", null, title); h.append(el("span", "pill " + tone, list.length + " ชุด")); sec.append(h);
+    if (!list.length) { sec.append(el("p", "rep-empty", emptyMsg)); return sec; }
+    const box = el("div", "tbl"); const t = el("table"); const thead = el("tr");
+    cols.forEach((c) => thead.append(el("th", null, c[0])));
+    t.append(thead);
+    list.forEach((r) => { const tr = el("tr"); cols.forEach((c) => { const td = el("td"); const v = c[1](r); td.append(v == null || v === "" ? "—" : v); tr.append(td); }); t.append(tr); });
+    box.append(t); sec.append(box); return sec;
+  }
+
+  function copyBtn(text, label, done, cls) {
+    const b = el("button", cls || "btn small copy", label); b.type = "button";
+    b.onclick = async () => {
+      try { await navigator.clipboard.writeText(text); toast(done); }
+      catch { const t = $("repText"); t.value = text; t.hidden = false; t.focus(); t.select(); toast("กด Ctrl+C เพื่อคัดลอกข้อความด้านล่าง"); }
+    };
+    return b;
+  }
+
+  function renderReport() {
+    if ($("reportView").hidden) return;
+    if (!$("repDate").value) $("repDate").value = today();
+    const D = $("repDate").value;
+    const d = reportData(D);
+    $("repTitle").textContent = "รายงานชุดเบิก " + longDate(D) + (D === today() ? " (วันนี้)" : "");
+
+    const stats = [
+      ["ส่งออก", d.shipped.length, "move"], ["ลูกค้าได้รับ", d.delivered.length, "done"],
+      ["ยังไม่ส่งออก", d.pending.length, "wait"], ["เกินกำหนด ยังไม่ถึง", d.late.length, "late"],
+    ];
+    $("repStats").replaceChildren(...stats.map(([l, n, tone]) => { const b = el("div", "stat " + tone); b.append(el("span", "n", n), el("span", "l", l + " (ชุด)")); return b; }));
+
+    const docNo = (r) => el("span", "docno", r.docNo || "—");
+    const custCell = (r) => { if (!r.customer) return ""; const w = el("span", "trk-cell"); w.append(el("span", "cust-name", r.customer), copyBtn(r.customer, "คัดลอก", "คัดลอกชื่อ " + r.customer + " แล้ว")); return w; };
+    const trk = (r) => {
+      if (!r.tracking) return "";
+      const w = el("span", "trk-cell");
+      if (isPost(r)) { const a = el("a", "trk", r.tracking + " ↗"); a.href = postUrl(r.tracking); a.target = "_blank"; a.rel = "noopener"; w.append(a); }
+      else w.append(el("span", "docno", r.tracking));
+      w.append(copyBtn(r.tracking, "คัดลอก", "คัดลอกเลขพัสดุ " + r.tracking + " แล้ว"));
+      return w;
+    };
+    const docsOf = (r) => itemText(r).join(", ");
+    const body = $("repBody"); body.replaceChildren();
+
+    // shipped-today parcel list: customer + tracking, each copyable, plus copy-all
+    const withTrk = d.shipped.filter((r) => r.tracking);
+    if (withTrk.length) {
+      const sec = el("section", "rep-sec parcels");
+      const h = el("h3", null, "เลขพัสดุที่ส่งออก"); h.append(el("span", "pill move", withTrk.length + " ชิ้น"));
+      const all = withTrk.map((r) => r.customer + " " + r.tracking).join("\n");
+      const head = el("div", "parcels-head"); head.append(h, copyBtn(all, "คัดลอกทั้งหมด (ชื่อลูกค้า + เลขพัสดุ)", "คัดลอกเลขพัสดุ " + withTrk.length + " รายการแล้ว", "btn small primary"));
+      const ul = el("ol", "parcel-list");
+      withTrk.forEach((r) => {
+        const li = el("li");
+        const who = el("div", "who"); who.append(custCell(r), el("span", "sub", r.docNo));
+        li.append(who, trk(r)); ul.append(li);
+      });
+      sec.append(head, ul); body.append(sec);
+    }
+    if (Object.keys(d.docs).length) {
+      const sec = el("section", "rep-sec"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
+      const ch = el("div", "chips");
+      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip", i + " " + n + " " + unitOf(i))));
+      ch.append(el("span", "chip total", totalText({ items: Object.keys(d.docs), itemQty: d.docs })));
+      sec.append(ch); body.append(sec);
+    }
+    body.append(
+      repTable("ส่งออก", "move", d.shipped, [["เลขที่", docNo], ["ลูกค้า", custCell], ["เลขพัสดุ", trk], ["ผู้ส่ง", (r) => r.sender], ["เอกสารในชุด", docsOf]], "ไม่มีชุดเบิกที่ส่งออกในวันนั้น"),
+      repTable("ลูกค้าได้รับ", "done", d.delivered, [["เลขที่", docNo], ["ลูกค้า", custCell], ["ผู้รับ", (r) => r.receiver], ["ส่งออกเมื่อ", (r) => thDate(r.shippedDate)], ["ใช้เวลา", (r) => r.shippedDate ? daysBetween(r.shippedDate, r.deliveredDate) + " วัน" : ""]], "ไม่มีชุดเบิกที่ลูกค้าได้รับในวันนั้น"),
+      repTable("เกินกำหนด ยังไม่ถึงลูกค้า", "late", d.late, [["เลขที่", docNo], ["ลูกค้า", custCell], ["ส่งออกเมื่อ", (r) => thDate(r.shippedDate)], ["ผ่านมา", (r) => daysBetween(r.shippedDate, D) + " วัน"], ["เลขพัสดุ", trk]], "ไม่มีชุดเบิกที่ส่งเกินกำหนด"),
+      repTable("ยังไม่ส่งออก", "wait", d.pending, [["เลขที่", docNo], ["ลูกค้า", custCell], ["เตรียมเมื่อ", (r) => thDate(r.preparedDate)], ["เอกสารในชุด", docsOf]], "ไม่มีชุดเบิกค้างส่ง"),
+    );
+    $("repText").value = reportText(D, d);
+  }
+
+  function reportText(D, d) {
+    const L = ["รายงานชุดเบิก " + longDate(D), ""];
+    L.push("ส่งออก " + d.shipped.length + " ชุด");
+    d.shipped.forEach((r) => L.push("- " + r.docNo + " " + r.customer + (r.tracking ? " EMS " + r.tracking : "")));
+    if (Object.keys(d.docs).length) L.push("  เอกสาร: " + Object.entries(d.docs).map(([i, n]) => i + " " + n + " " + unitOf(i)).join(", "));
+    L.push("", "ลูกค้าได้รับ " + d.delivered.length + " ชุด");
+    d.delivered.forEach((r) => L.push("- " + r.docNo + " " + r.customer + (r.receiver ? " ผู้รับ: " + r.receiver : "")));
+    L.push("", "เกินกำหนด ยังไม่ถึงลูกค้า " + d.late.length + " ชุด");
+    d.late.forEach((r) => L.push("- " + r.docNo + " " + r.customer + " ส่ง " + thDate(r.shippedDate) + " (" + daysBetween(r.shippedDate, D) + " วัน)" + (r.tracking ? " " + r.tracking : "")));
+    L.push("", "ยังไม่ส่งออก " + d.pending.length + " ชุด");
+    d.pending.forEach((r) => L.push("- " + r.docNo + " " + r.customer));
+    return L.join("\n");
+  }
+
+  function render() {
+    renderReport();
+    const counts = { all: rows.length, wait: 0, move: 0, late: 0, done: 0 };
+    rows.forEach((r) => counts[statusOf(r)]++);
+    for (const k in counts) $("c-" + k).textContent = counts[k];
+    document.querySelectorAll(".stat").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.f === filter)));
+
+    const q = $("q").value.trim().toLowerCase();
+    const shown = rows
+      .filter((r) => filter === "all" || statusOf(r) === filter)
+      .filter((r) => !q || [r.docNo, r.customer, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
+      .sort((a, b) => {
+        const order = { late: 0, wait: 1, move: 2, done: 3 };
+        const s = order[statusOf(a)] - order[statusOf(b)];
+        return s || String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+      });
+
+    const list = $("list");
+    list.replaceChildren();
+    if (!rows.length) {
+      const e = el("div", "empty-state");
+      e.append(el("h2", null, "ยังไม่มีชุดเบิกในระบบ"),
+        el("div", null, "กด “+ เพิ่มชุดเบิก” เพื่อบันทึกเลขที่เอกสารและชื่อลูกค้า จากนั้นค่อยกดบันทึกวันส่งออก และวันที่ลูกค้าได้รับพร้อมชื่อผู้รับ"));
+      if (canWrite) { const b = el("button", "btn primary", "+ เพิ่มชุดเบิกรายการแรก"); b.type = "button"; b.onclick = () => openForm(null, "full"); e.append(b); }
+      list.append(e); return;
+    }
+    if (!shown.length) { const e = el("div", "empty-state"); e.append(el("h2", null, "ไม่พบรายการที่ตรงกับตัวกรอง")); list.append(e); return; }
+
+    for (const r of shown) list.append(card(r));
+  }
+
+  function card(r) {
+    const st = statusOf(r);
+    const c = el("article", "card" + (st === "late" ? " is-late" : ""));
+    const meta = el("div", "meta");
+    const row1 = el("div", "row1");
+    row1.append(el("span", "docno", r.docNo || "—"), el("span", "pill " + st, LABEL[st]));
+    meta.append(row1, el("div", "cust", r.customer || "—"));
+    if (r.items && r.items.length) {
+      const ch = el("div", "chips");
+      r.items.forEach((i) => ch.append(el("span", "chip item-chip", itemLabel(r, i))));
+      if (totalText(r)) ch.append(el("span", "chip total", totalText(r)));
+      meta.append(ch);
+    }
+    const subs = [];
+    if (r.amount) subs.push("ยอด " + Number(r.amount).toLocaleString("th-TH", { minimumFractionDigits: 2 }) + " บาท");
+    if (r.note) subs.push(r.note);
+    if (subs.length) meta.append(el("div", "sub", subs.join(" · ")));
+
+    const track = el("div", "track");
+    const steps = el("div", "steps");
+    // ship note: tracking number becomes a Thailand Post tracking link
+    const parts = [];
+    if (r.method) parts.push(r.method);
+    if (r.tracking) {
+      if (isPost(r)) {
+        const a = el("a", "trk", "พัสดุ " + r.tracking + " ↗");
+        a.href = postUrl(r.tracking); a.target = "_blank"; a.rel = "noopener";
+        a.title = "เช็คสถานะพัสดุที่เว็บไปรษณีย์ไทย";
+        parts.push(a);
+      } else parts.push(r.tracking);
+    }
+    if (r.sender) parts.push("โดย " + r.sender);
+    if (r.shippedDate && !r.deliveredDate) parts.push("ผ่านมา " + daysSince(r.shippedDate) + " วัน");
+    let shipNote = "";
+    if (parts.length) {
+      shipNote = document.createDocumentFragment();
+      parts.forEach((p, i) => { if (i) shipNote.append(" · "); shipNote.append(p); });
+    }
+    const s = [
+      { t: "เตรียมชุดเอกสาร", d: r.preparedDate, w: "" },
+      { t: "ส่งออก", d: r.shippedDate, w: shipNote },
+      { t: "ถึงลูกค้า", d: r.deliveredDate, w: r.receiver ? "ผู้รับ: " + r.receiver : "" },
+    ];
+    // a later step being done implies earlier ones are done
+    const on = [!!(r.preparedDate || r.shippedDate || r.deliveredDate), !!(r.shippedDate || r.deliveredDate), !!r.deliveredDate];
+    s.forEach((x, i) => {
+      const e = el("div", "step" + (on[i] ? " on" : " empty") + (on[i] && !on[i + 1] ? " next-off" : ""));
+      e.append(el("span", "t", x.t), el("span", "d", x.d ? thDate(x.d) : (on[i] ? "ไม่ระบุวัน" : "ยังไม่ถึงขั้นนี้")));
+      if (x.w) { const w = el("span", "w"); w.append(x.w); e.append(w); }
+      steps.append(e);
+    });
+    track.append(steps);
+
+    const acts = el("div", "cardacts");
+    if (isPost(r)) {
+      const cp = el("button", "btn small", "คัดลอกเลขพัสดุ"); cp.type = "button";
+      cp.onclick = async () => {
+        try { await navigator.clipboard.writeText(r.tracking); toast("คัดลอกเลขพัสดุแล้ว"); }
+        catch { toast("เลขพัสดุ: " + r.tracking); }
+      };
+      acts.append(cp);
+    }
+    if (canWrite) {
+      if (st === "wait") { const b = el("button", "btn primary small", "บันทึกการส่งออก"); b.type = "button"; b.onclick = () => openForm(r, "ship"); acts.append(b); }
+      if (st === "move" || st === "late") { const b = el("button", "btn primary small", "บันทึกว่าลูกค้าได้รับแล้ว"); b.type = "button"; b.onclick = () => openForm(r, "recv"); acts.append(b); }
+      if (st === "done") { const b = el("button", "btn small", "แก้ไขข้อมูลผู้รับ"); b.type = "button"; b.onclick = () => openForm(r, "recv"); acts.append(b); }
+      const ed = el("button", "btn small", "แก้ไข"); ed.type = "button"; ed.onclick = () => openForm(r, "full"); acts.append(ed);
+    }
+    if (acts.childElementCount) track.append(acts);
+    c.append(meta, track);
+    return c;
+  }
+
+  // ---------- form ----------
+  ITEMS.concat(SUBS, [NONE]).forEach((name, i) => {
+    if (name === NONE) {
+      const box = el("div", "item sub none"); const l = el("label"); const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
+      const n = document.createElement("input"); n.type = "hidden"; n.id = "qty" + i; n.value = "1";
+      l.append(cb, document.createTextNode(name)); box.append(l, n); $("itemChecks").append(box);
+      // "no comparison quotes" and the competitor sub-items exclude each other
+      cb.addEventListener("change", () => { if (cb.checked) document.querySelectorAll("#itemChecks .item.sub:not(.none) input[type=checkbox]").forEach((s) => { if (s.checked) { s.checked = false; s.dispatchEvent(new Event("change")); } }); });
+      return;
+    }
+    const isSub = name.startsWith(GROUP);
+    if (name === SUBS[0]) $("itemChecks").append(el("div", "group-head", GROUP));
+    const box = el("div", "item" + (isSub ? " sub" : "")); const l = el("label"); const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
+    l.append(cb, document.createTextNode(isSub ? name.slice(GROUP.length + 1) : name));
+    const n = document.createElement("input");
+    n.type = "number"; n.min = "1"; n.step = "1"; n.value = "1"; n.id = "qty" + i; n.className = "qty";
+    n.inputMode = "numeric"; n.disabled = true; n.setAttribute("aria-label", "จำนวน " + name);
+    cb.addEventListener("change", () => {
+      n.disabled = !cb.checked; if (cb.checked && !(Number(n.value) >= 1)) n.value = "1";
+      if (isSub && cb.checked) { const none = document.querySelector("#itemChecks .item.none input[type=checkbox]"); if (none) none.checked = false; }
+    });
+    box.append(l, n, el("span", "unit", unitOf(name))); $("itemChecks").append(box);
+  });
+  const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
+  const itemLabel = (r, i) => (i === NONE ? i : i + " " + qtyOf(r, i) + " " + unitOf(i));
+  const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
+  // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
+  const totalText = (r) => {
+    const t = {};
+    (r.items || []).filter((i) => i !== NONE).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
+    return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
+  };
+  const FIELDS = ["docNo", "customer", "amount", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
+
+  function openForm(r, m) {
+    editingId = r ? r.id : null; mode = m; delArmed = false;
+    FIELDS.forEach((f) => { $(f).value = r && r[f] != null ? r[f] : ""; });
+    document.querySelectorAll("#itemChecks input[type=checkbox]").forEach((cb) => {
+      cb.checked = !!(r && r.items && r.items.includes(cb.value));
+      const n = $(cb.id.replace("item", "qty"));
+      n.value = String(qtyOf(r, cb.value)); n.disabled = !cb.checked;
+    });
+    if (!r) { $("preparedDate").value = today(); }
+    if (m === "ship" && !$("shippedDate").value) $("shippedDate").value = today();
+    if (!$("method").value) $("method").value = "ไปรษณีย์ EMS";  // all sets go by EMS
+    if (m === "recv" && !$("deliveredDate").value) $("deliveredDate").value = today();
+    $("fs-doc").hidden = m !== "full";
+    $("fs-ship").hidden = m === "recv";
+    $("fs-recv").hidden = m !== "recv";
+    $("noteWrap").hidden = m !== "full";
+    $("formTitle").textContent = m === "ship" ? "บันทึกการส่งออก · " + r.docNo
+      : m === "recv" ? "บันทึกการรับเอกสาร · " + r.docNo
+      : r ? "แก้ไขชุดเบิก " + r.docNo : "เพิ่มชุดเบิก";
+    $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
+    $("formErr").hidden = true;
+    const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
+    $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
+    $("overlay").hidden = false;
+    const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
+    setTimeout(() => $(first).focus(), 30);
+  }
+  function closeForm() { $("overlay").hidden = true; editingId = null; }
+
+  function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = {};
+    FIELDS.forEach((f) => { data[f] = $(f).value.trim(); });
+    const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
+    data.items = checked.map((cb) => cb.value);
+    data.itemQty = {};
+    for (const cb of checked) {
+      const v = Number($(cb.id.replace("item", "qty")).value);
+      if (!Number.isInteger(v) || v < 1) return showErr("จำนวนของ " + cb.value + " ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
+      data.itemQty[cb.value] = v;
+    }
+    if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
+    if (data.amount && isNaN(Number(data.amount.replace(/,/g, "")))) return showErr("ยอดเงินต้องเป็นตัวเลข");
+    data.amount = data.amount ? String(Number(data.amount.replace(/,/g, ""))) : "";
+    if (data.deliveredDate && data.shippedDate && data.deliveredDate < data.shippedDate) return showErr("วันที่ถึงลูกค้าต้องไม่ก่อนวันที่ส่งออก");
+    if (mode === "recv" && !data.receiver) return showErr("กรุณาระบุชื่อผู้รับเอกสาร");
+    if (data.deliveredDate && !data.shippedDate) data.shippedDate = data.deliveredDate;
+    const prev = editingId ? rows.find((x) => x.id === editingId) : null;
+    data.createdAt = prev && prev.createdAt ? prev.createdAt : new Date().toISOString();
+    data.updatedAt = new Date().toISOString();
+    $("saveBtn").disabled = true;
+    try {
+      if (col) { await (editingId ? col.doc(editingId) : col.doc()).set(data); }
+      else { if (editingId) Object.assign(prev, data); else rows.push({ id: "local" + Date.now(), ...data }); render(); }
+      closeForm();
+      toast(mode === "ship" ? "บันทึกการส่งออกแล้ว" : mode === "recv" ? "บันทึกการรับเอกสารแล้ว" : "บันทึกแล้ว");
+    } catch (err) {
+      showErr(err && err.code === "invalid_argument" ? "คุณไม่มีสิทธิ์แก้ไขข้อมูลในหน้านี้" : err && err.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าก่อนแล้วลองใหม่" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
+    } finally { $("saveBtn").disabled = false; }
+  });
+
+  $("delBtn").onclick = async () => {
+    if (!delArmed) { delArmed = true; $("delBtn").textContent = "กดอีกครั้งเพื่อยืนยันการลบ"; return; }
+    try { if (col) await col.doc(editingId).delete(); else { rows = rows.filter((x) => x.id !== editingId); render(); } closeForm(); toast("ลบรายการแล้ว"); }
+    catch { showErr("ลบไม่สำเร็จ ลองอีกครั้ง"); }
+  };
+  $("cancelBtn").onclick = closeForm;
+  $("overlay").addEventListener("click", (e) => { if (e.target === $("overlay")) closeForm(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("overlay").hidden) closeForm(); });
+  $("addBtn").onclick = () => openForm(null, "full");
+
+  // ---------- filters ----------
+  $("strip").addEventListener("click", (e) => { const b = e.target.closest(".stat"); if (!b) return; filter = b.dataset.f; render(); });
+  $("q").addEventListener("input", render);
+
+  function showView(v) {
+    const rep = v === "report";
+    $("reportView").hidden = !rep; $("listView").hidden = rep;
+    $("tab-list").setAttribute("aria-selected", String(!rep)); $("tab-report").setAttribute("aria-selected", String(rep));
+    try { localStorage.setItem("view", v); } catch {}
+    render();
+  }
+  $("tab-list").onclick = () => showView("list");
+  $("tab-report").onclick = () => showView("report");
+  const shiftDay = (n) => { const d = parse($("repDate").value || today()); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); $("repDate").value = d.toISOString().slice(0, 10); renderReport(); };
+  $("prevDay").onclick = () => shiftDay(-1);
+  $("nextDay").onclick = () => shiftDay(1);
+  $("todayBtn").onclick = () => { $("repDate").value = today(); renderReport(); };
+  $("repDate").addEventListener("change", renderReport);
+  $("copyReport").onclick = async () => {
+    const D = $("repDate").value || today();
+    const txt = reportText(D, reportData(D));
+    try { await navigator.clipboard.writeText(txt); toast("คัดลอกรายงานแล้ว วางใน LINE หรืออีเมลได้เลย"); }
+    catch { const t = $("repText"); t.hidden = false; t.focus(); t.select(); toast("กด Ctrl+C เพื่อคัดลอกข้อความด้านล่าง"); }
+  };
+  if (location.hash === "#report") showView("report");
+  else { try { if (localStorage.getItem("view") === "report") showView("report"); } catch {} }
+  $("lateDays").addEventListener("change", () => { try { localStorage.setItem("lateDays", $("lateDays").value); } catch {} render(); });
+  try { const v = localStorage.getItem("lateDays"); if (v) $("lateDays").value = v; } catch {}
+
+  let tTimer;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tTimer); tTimer = setTimeout(() => (t.hidden = true), 2200); }
+
+  // ---------- export ----------
+  $("exportBtn").onclick = async () => {
+    const head = ["เลขที่เอกสาร", "ลูกค้า", "เอกสารในชุด", "ยอดเงิน", "วันที่เตรียม", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
+    const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, itemText(r).join(" / "), r.amount, r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
+    const csv = "﻿" + lines.join("\r\n");
+    try {
+      const dl = await claude.use("downloads");
+      if (!dl) return toast("ดาวน์โหลดไม่ได้ในมุมมองนี้");
+      await dl.save({ filename: "ชุดเบิก-" + today() + ".csv", data: csv });
+    } catch (err) { if (!err || err.code !== "declined") toast("ดาวน์โหลดไม่สำเร็จ"); }
+  };
+
+  // ---------- data ----------
+  function offline(msg) {
+    $("notice").textContent = msg; $("notice").hidden = false;
+    col = null; render();
+  }
+  async function start() {
+    db = window.claude && claude.use ? await claude.use("db") : null;
+    if (!db) return offline("ยังเชื่อมต่อที่เก็บข้อมูลไม่ได้ (ต้องลงชื่อเข้าใช้ claude.ai) ข้อมูลที่กรอกตอนนี้จะหายเมื่อปิดหน้า");
+    col = db.collection("docsets");
+    try {
+      const u = await claude.use("user");
+      const w = u ? await u.can("data.write") : null;
+      if (w === false) { canWrite = false; $("addBtn").hidden = true; $("notice").textContent = "คุณดูรายการได้อย่างเดียว ขอสิทธิ์ผู้ร่วมแก้ไขจากเจ้าของหน้าเพื่อบันทึกข้อมูล"; $("notice").hidden = false; }
+    } catch {}
+    col.onSnapshot((snap) => {
+      rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      render();
+    }, () => offline("การเชื่อมต่อข้อมูลขาดหาย รีโหลดหน้าเพื่อเชื่อมต่อใหม่"));
+  }
+  start();
+})();
+</script>

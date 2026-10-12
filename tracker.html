@@ -724,7 +724,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     $("saveBtn").disabled = true;
     try {
       if (col) { await (editingId ? col.doc(editingId) : col.doc()).set(data); }
-      else { if (editingId) Object.assign(prev, data); else rows.push({ id: "local" + Date.now(), ...data }); render(); }
+      else { if (editingId) Object.assign(prev, data); else rows.push({ id: "local" + Date.now(), ...data }); saveLocal(); render(); }
       closeForm();
       toast(mode === "ship" ? "บันทึกการส่งออกแล้ว" : mode === "recv" ? "บันทึกการรับเอกสารแล้ว" : "บันทึกแล้ว");
     } catch (err) {
@@ -734,7 +734,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 
   $("delBtn").onclick = async () => {
     if (!delArmed) { delArmed = true; $("delBtn").textContent = "กดอีกครั้งเพื่อยืนยันการลบ"; return; }
-    try { if (col) await col.doc(editingId).delete(); else { rows = rows.filter((x) => x.id !== editingId); render(); } closeForm(); toast("ลบรายการแล้ว"); }
+    try { if (col) await col.doc(editingId).delete(); else { rows = rows.filter((x) => x.id !== editingId); saveLocal(); render(); } closeForm(); toast("ลบรายการแล้ว"); }
     catch { showErr("ลบไม่สำเร็จ ลองอีกครั้ง"); }
   };
   $("cancelBtn").onclick = closeForm;
@@ -781,20 +781,34 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, itemText(r).join(" / "), r.amount, r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
     const csv = "﻿" + lines.join("\r\n");
     try {
-      const dl = await claude.use("downloads");
-      if (!dl) return toast("ดาวน์โหลดไม่ได้ในมุมมองนี้");
-      await dl.save({ filename: "ชุดเบิก-" + today() + ".csv", data: csv });
+      const filename = "ชุดเบิก-" + today() + ".csv";
+      const dl = window.claude && claude.use ? await claude.use("downloads") : null;
+      if (dl) return void (await dl.save({ filename, data: csv }));
+      // outside claude.ai: an ordinary browser download
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a"); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) { if (!err || err.code !== "declined") toast("ดาวน์โหลดไม่สำเร็จ"); }
   };
 
   // ---------- data ----------
-  function offline(msg) {
+  // Outside claude.ai (Vercel, GitHub, a local file) there is no shared db: keep rows in this browser instead
+  const LOCAL_KEY = "docsets-local";
+  let localMode = false;
+  function loadLocal() { try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]"); } catch { return []; } }
+  function saveLocal() {
+    if (!localMode) return;
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(rows)); } catch { toast("บันทึกในเครื่องนี้ไม่สำเร็จ เบราว์เซอร์อาจปิดการเก็บข้อมูลไว้"); }
+  }
+  function offline(msg, local) {
     $("notice").textContent = msg; $("notice").hidden = false;
-    col = null; render();
+    col = null; localMode = !!local;
+    if (localMode) rows = loadLocal();
+    render();
   }
   async function start() {
     db = window.claude && claude.use ? await claude.use("db") : null;
-    if (!db) return offline("ยังเชื่อมต่อที่เก็บข้อมูลไม่ได้ (ต้องลงชื่อเข้าใช้ claude.ai) ข้อมูลที่กรอกตอนนี้จะหายเมื่อปิดหน้า");
+    if (!db) return offline("เปิดนอก claude.ai: ข้อมูลบันทึกไว้ในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่แชร์กับเครื่องอื่น และไม่รวมกับข้อมูลบน claude.ai กด “ส่งออกเป็น Excel (CSV)” เป็นประจำเพื่อสำรองข้อมูล", true);
     col = db.collection("docsets");
     try {
       const u = await claude.use("user");

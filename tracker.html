@@ -256,6 +256,13 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .err { color: var(--late); font-size: .85rem; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: .9rem; z-index: 20; }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
+/* sign-in (Supabase mode, outside claude.ai) */
+body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .actions { display: none !important; }
+.login { max-width: 420px; width: 100%; margin: 24px auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px;
+  display: grid; gap: 14px; box-shadow: 0 1px 2px rgba(25, 20, 45, .05), 0 16px 36px -18px rgba(25, 20, 45, .35); }
+.login h2 { font-size: 1.2rem; }
+.login p { margin: 0; color: var(--muted); font-size: .9rem; }
+.userbar { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); flex-wrap: wrap; }
 </style>
 
 <div class="wrap">
@@ -271,6 +278,20 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   </header>
 
   <div class="notice" id="notice" hidden></div>
+
+  <div class="userbar" id="userbar" hidden>
+    <span id="userEmail"></span>
+    <button class="btn small" type="button" id="signOutBtn">ออกจากระบบ</button>
+  </div>
+
+  <form class="login" id="loginView" hidden novalidate>
+    <h2>เข้าสู่ระบบติดตามชุดเบิก</h2>
+    <p>ใช้อีเมลและรหัสผ่านที่ผู้ดูแลสร้างให้ใน Supabase</p>
+    <label class="f"><span>อีเมล</span><input id="loginEmail" type="email" autocomplete="username"></label>
+    <label class="f"><span>รหัสผ่าน</span><input id="loginPass" type="password" autocomplete="current-password"></label>
+    <div class="err" id="loginErr" hidden></div>
+    <button class="btn primary" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
+  </form>
 
   <nav class="tabs" role="tablist">
     <button type="button" class="tab" role="tab" id="tab-list" aria-selected="true">รายการชุดเบิก</button>
@@ -806,8 +827,69 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     if (localMode) rows = loadLocal();
     render();
   }
+  // ---------- Supabase (used when the page runs outside claude.ai, e.g. on Vercel) ----------
+  // The anon/publishable key is public by design; row-level security in Supabase only lets signed-in users in.
+  const SUPABASE_URL = "https://urqkmzqtmvwkmezadnke.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycWttenF0bXZ3a21lemFkbmtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3OTMwMTMsImV4cCI6MjEwNzM2OTAxM30.AWyx6WE6_uA_z6XLpbz-sxSltdbBMnFiUykXLkbCU4w";
+  let sb = null, sbStarted = false;
+  const loadScript = (src) => new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = fail; document.head.append(s); });
+  const sbErr = (error) => ({ code: error && (error.code === "42501" || error.status === 401 || error.status === 403) ? "invalid_argument" : "unavailable", message: error && error.message });
+
+  async function sbRefresh() {
+    const { data, error } = await sb.from("docsets").select("id,data");
+    if (error) { $("notice").textContent = "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + error.message; $("notice").hidden = false; return; }
+    rows = data.map((r) => ({ id: r.id, ...r.data }));
+    render();
+  }
+  // same shape the save/delete code already uses for the claude.ai store: col.doc(id).set(data) / .delete()
+  const sbCollection = {
+    doc(id) {
+      id = id || (crypto.randomUUID ? crypto.randomUUID() : "d" + Date.now() + Math.random().toString(36).slice(2));
+      return {
+        async set(data) { const { error } = await sb.from("docsets").upsert({ id, data, updated_at: new Date().toISOString() }); if (error) throw sbErr(error); await sbRefresh(); },
+        async delete() { const { error } = await sb.from("docsets").delete().eq("id", id); if (error) throw sbErr(error); await sbRefresh(); },
+      };
+    },
+  };
+  function sbLocked(locked) {
+    document.body.classList.toggle("locked", locked);
+    $("loginView").hidden = !locked; $("userbar").hidden = locked;
+  }
+  function sbBegin(session) {
+    sbLocked(false);
+    $("userEmail").textContent = "เข้าสู่ระบบเป็น " + (session.user.email || "");
+    if (sbStarted) return;
+    sbStarted = true; col = sbCollection; sbRefresh();
+    sb.channel("docsets-live").on("postgres_changes", { event: "*", schema: "public", table: "docsets" }, () => sbRefresh()).subscribe();
+  }
+  async function startSupabase() {
+    try { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); } catch { return false; }
+    if (!window.supabase) return false;
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    $("notice").hidden = true;
+    sb.auth.onAuthStateChange((_event, session) => {
+      if (session) sbBegin(session);
+      else { sbLocked(true); if (sbStarted) location.reload(); }
+    });
+    const { data } = await sb.auth.getSession();
+    if (data.session) sbBegin(data.session); else sbLocked(true);
+    return true;
+  }
+  $("loginView").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("loginEmail").value.trim(), password = $("loginPass").value;
+    if (!email || !password) { $("loginErr").textContent = "กรอกอีเมลและรหัสผ่าน"; $("loginErr").hidden = false; return; }
+    $("loginBtn").disabled = true; $("loginErr").hidden = true;
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    $("loginBtn").disabled = false;
+    if (error) { $("loginErr").textContent = "อีเมลหรือรหัสผ่านไม่ถูกต้อง"; $("loginErr").hidden = false; }
+    else $("loginPass").value = "";
+  });
+  $("signOutBtn").onclick = () => sb && sb.auth.signOut();
+
   async function start() {
     db = window.claude && claude.use ? await claude.use("db") : null;
+    if (!db && !window.claude && SUPABASE_URL && (await startSupabase())) return;
     if (!db) return offline("เปิดนอก claude.ai: ข้อมูลบันทึกไว้ในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่แชร์กับเครื่องอื่น และไม่รวมกับข้อมูลบน claude.ai กด “ส่งออกเป็น Excel (CSV)” เป็นประจำเพื่อสำรองข้อมูล", true);
     col = db.collection("docsets");
     try {

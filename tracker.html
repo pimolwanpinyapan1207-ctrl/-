@@ -42,6 +42,7 @@
   --overlay: rgba(0,0,0,.6); color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
 .wrap { max-width: 1040px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; display: grid; gap: 20px; }
 h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
@@ -179,7 +180,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .checks .item .unit { color: var(--item-ink); width: 2.4em; flex: none; }
 .checks .group-head { grid-column: 1 / -1; font-family: var(--item-font); font-size: .88rem; color: var(--item-ink); margin-top: 6px; padding-left: 2px; }
 .checks .item.sub { margin-left: 14px; }
-.checks .item.none { background: var(--surface); border-style: dashed; }
+.checks .item.none { background: var(--item-bg); }
 .checks .item .qty { background: #ffffff; color: var(--item-ink); border-color: var(--item-line); }
 .checks .item input[type=checkbox] { accent-color: var(--item-ink); }
 .sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }

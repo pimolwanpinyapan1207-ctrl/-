@@ -169,6 +169,23 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .f span { font-size: .82rem; color: var(--muted); }
 .f input, .f select, .f textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
 .f textarea { min-height: 60px; resize: vertical; }
+/* form depth: the sheet is the ground, each section a raised panel, each field a soft inset well */
+.sheet { background: var(--bg); box-shadow: 0 24px 60px -20px rgba(16, 24, 36, .45); }
+.sheet .fieldset { background: linear-gradient(180deg, var(--surface) 0%, color-mix(in srgb, var(--surface) 92%, var(--bg)) 100%);
+  border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 16px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 1px 2px rgba(25, 20, 45, .05), 0 10px 22px -14px rgba(25, 20, 45, .28); }
+.sheet .fieldset legend { float: left; width: 100%; margin: 0 0 2px; padding: 0 0 8px; border-bottom: 1px solid var(--line); color: var(--ink); letter-spacing: .04em; }
+.sheet #noteWrap { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 1px 2px rgba(25, 20, 45, .05), 0 10px 22px -14px rgba(25, 20, 45, .28); }
+.f > input, .f > select, .f > textarea {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, var(--surface)) 0%, var(--surface) 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted)); border-radius: 10px; padding: 9px 12px;
+  box-shadow: inset 0 1px 3px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .8);
+  transition: border-color .15s ease, box-shadow .15s ease; }
+.f > input:hover, .f > select:hover, .f > textarea:hover { border-color: var(--muted); }
+.f > input:focus, .f > select:focus, .f > textarea:focus { outline: none; border-color: var(--accent);
+  box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent); }
+.f > span { font-weight: 500; color: color-mix(in srgb, var(--ink) 70%, var(--muted)); }
 /* document-set boxes: each box carries its own colour trio; a ticked box fills with full colour */
 .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
 .checks .item { --c-bg: var(--item-bg); --c-line: var(--item-line); --c-ink: var(--item-ink);

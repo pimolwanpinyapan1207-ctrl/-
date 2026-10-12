@@ -301,10 +301,11 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 
 <script>
 (function () {
-  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด", "อากรแสตมป์": "ดวง" };
+  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด", "อากรแสตมป์": "" };
   const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company
   const NONE = "ไม่มีคู่เทียบ";  // a flag, not a document: no quantity, excluded from totals
-  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : UNITS[name] || "ฉบับ");
+  const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name in UNITS ? UNITS[name] : "ฉบับ");
+  const qtyLabel = (i, n) => i + " " + n + (unitOf(i) ? " " + unitOf(i) : "");  // อากรแสตมป์ has no unit
   const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME", "อากรแสตมป์"];
   const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);
   const $ = (id) => document.getElementById(id);
@@ -417,7 +418,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     if (Object.keys(d.docs).length) {
       const sec = el("section", "rep-sec"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
       const ch = el("div", "chips");
-      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip", i + " " + n + " " + unitOf(i))));
+      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip", qtyLabel(i, n))));
       ch.append(el("span", "chip total", totalText({ items: Object.keys(d.docs), itemQty: d.docs })));
       sec.append(ch); body.append(sec);
     }
@@ -434,7 +435,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     const L = ["รายงานชุดเบิก " + longDate(D), ""];
     L.push("ส่งออก " + d.shipped.length + " ชุด");
     d.shipped.forEach((r) => L.push("- " + r.docNo + " " + r.customer + (r.tracking ? " EMS " + r.tracking : "")));
-    if (Object.keys(d.docs).length) L.push("  เอกสาร: " + Object.entries(d.docs).map(([i, n]) => i + " " + n + " " + unitOf(i)).join(", "));
+    if (Object.keys(d.docs).length) L.push("  เอกสาร: " + Object.entries(d.docs).map(([i, n]) => qtyLabel(i, n)).join(", "));
     L.push("", "ลูกค้าได้รับ " + d.delivered.length + " ชุด");
     d.delivered.forEach((r) => L.push("- " + r.docNo + " " + r.customer + (r.receiver ? " ผู้รับ: " + r.receiver : "")));
     L.push("", "เกินกำหนด ยังไม่ถึงลูกค้า " + d.late.length + " ชุด");
@@ -574,12 +575,12 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     box.append(l, n, el("span", "unit", unitOf(name))); $("itemChecks").append(box);
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
-  const itemLabel = (r, i) => (i === NONE ? i : i + " " + qtyOf(r, i) + " " + unitOf(i));
+  const itemLabel = (r, i) => (i === NONE ? i : qtyLabel(i, qtyOf(r, i)));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
   const totalText = (r) => {
     const t = {};
-    (r.items || []).filter((i) => i !== NONE).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
+    (r.items || []).filter((i) => i !== NONE && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
   const FIELDS = ["docNo", "customer", "amount", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];

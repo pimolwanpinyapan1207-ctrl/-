@@ -20,6 +20,9 @@
   --item-bg: #DD94EC;  /* document-set items, same in both themes */
   --item-line: #C977DB;
   --item-ink: #3d1347;
+  --cdoc-bg: #FFC19A;  /* competitor company-document boxes, same in both themes */
+  --cdoc-line: #EE9F6E;
+  --cdoc-ink: #5a2a0c;
   --cmp-bg: #C6D9BB;  /* comparison-quote boxes, same in both themes */
   --cmp-line: #A9C29A;
   --cmp-ink: #2f4424;
@@ -200,6 +203,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   color: var(--ink); font-family: var(--item-font); font-weight: 400; font-size: .9rem; line-height: 1.6; }
 .checks .item.stamp { --c-bg: var(--stamp-bg); --c-line: var(--stamp-line); --c-ink: var(--stamp-ink); }
 .checks .item.cmp { --c-bg: var(--cmp-bg); --c-line: var(--cmp-line); --c-ink: var(--cmp-ink); }
+.checks .item.cdoc { --c-bg: var(--cdoc-bg); --c-line: var(--cdoc-line); --c-ink: var(--cdoc-ink); }
 .checks .item:hover { border-color: var(--c-line); }
 .checks .item:has(input[type=checkbox]:checked) { background: var(--c-bg); border-color: var(--c-line); color: var(--c-ink); box-shadow: 0 3px 10px -4px var(--c-line); }
 .checks .item:has(input[type=checkbox]:focus-visible) { outline: 2px solid var(--c-line); outline-offset: 2px; }
@@ -216,12 +220,14 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .checks .group-head::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--item-bg); border: 1.5px solid var(--item-line); }
 .checks .group-head.stamp::before { background: var(--stamp-bg); border-color: var(--stamp-line); }
 .checks .group-head.cmp::before { background: var(--cmp-bg); border-color: var(--cmp-line); }
+.checks .group-head.cdoc::before { background: var(--cdoc-bg); border-color: var(--cdoc-line); }
 .checks .item.sub { margin-left: 18px; }
 /* chips on cards and in the report */
 .chip.item-chip, .chip.total { font-family: var(--item-font); font-weight: 400; font-size: .82rem; line-height: 1.6; padding: 2px 11px; border-radius: 99px; border: 1.5px solid var(--item-line); }
 .chip.item-chip { background: var(--item-bg); color: var(--item-ink); }
 .chip.item-chip.stamp { background: var(--stamp-bg); border-color: var(--stamp-line); color: var(--stamp-ink); }
 .chip.item-chip.cmp { background: var(--cmp-bg); border-color: var(--cmp-line); color: var(--cmp-ink); }
+.chip.item-chip.cdoc { background: var(--cdoc-bg); border-color: var(--cdoc-line); color: var(--cdoc-ink); }
 .chip.total { background: transparent; color: var(--ink); border-style: dashed; border-color: var(--muted); }
 /* depth: soft top highlight + layered tinted shadows; ticked boxes rise, hover lifts */
 .checks .item {
@@ -498,7 +504,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     if (Object.keys(d.docs).length) {
       const sec = el("section", "rep-sec"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
       const ch = el("div", "chips");
-      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip" + (i.includes(GROUP) ? " cmp" : ""), qtyLabel(i, n))));
+      Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip" + (i.includes(CMP_DOCS) ? " cdoc" : i.includes(GROUP) ? " cmp" : ""), qtyLabel(i, n))));
       ch.append(el("span", "chip total", totalText({ items: Object.keys(d.docs), itemQty: d.docs })));
       sec.append(ch); body.append(sec);
     }
@@ -565,7 +571,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
     meta.append(row1, el("div", "cust", r.customer || "—"));
     if (r.items && r.items.length) {
       const ch = el("div", "chips");
-      r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : "") + (i.includes(GROUP) ? " cmp" : ""), itemLabel(r, i))));
+      r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : "") + (i.includes(CMP_DOCS) ? " cdoc" : i.includes(GROUP) ? " cmp" : ""), itemLabel(r, i))));
       if (totalText(r)) ch.append(el("span", "chip total", totalText(r)));
       meta.append(ch);
     }
@@ -632,9 +638,9 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
   // ---------- form ----------
   let idx = 0;
   FORM.forEach((f) => {
-    if (f.head) { $("itemChecks").append(el("div", "group-head " + (f.head === STAMP ? "stamp" : "cmp"), f.head)); return; }
+    if (f.head) { $("itemChecks").append(el("div", "group-head " + (f.head === STAMP ? "stamp" : f.head === CMP_DOCS ? "cdoc" : "cmp"), f.head)); return; }
     const i = idx++, name = f.name;
-    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" || f.x === "cmpdoc" ? " cmp" : "")); const l = el("label"); const cb = document.createElement("input");
+    const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" ? " cmp" : f.x === "cmpdoc" ? " cdoc" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
     if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
     l.append(cb, document.createTextNode(f.label));

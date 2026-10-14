@@ -261,6 +261,10 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .sheet .foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }
+.hint { font-size: .8rem; color: var(--muted); }
+.hint.bad { color: var(--late); font-weight: 500; }
+.hint.good { color: var(--done); }
+.f > input[aria-invalid="true"], .f > input[aria-invalid="true"]:focus { border-color: var(--late); box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--late) 20%, transparent); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: .9rem; z-index: 20; }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
 /* sign-in (Supabase mode, outside claude.ai) */
@@ -351,7 +355,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     <fieldset class="fieldset" id="fs-doc">
       <legend>ข้อมูลชุดเอกสาร</legend>
       <div class="grid2">
-        <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off"></label>
+        <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
         <label class="f"><span>ยอดเงิน (บาท)</span><input id="amount" inputmode="decimal" autocomplete="off"></label>
         <label class="f"><span>วันที่เตรียมชุดเอกสาร</span><input id="preparedDate" type="date"></label>
@@ -748,6 +752,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       : r ? "แก้ไขชุดเบิก " + r.docNo : "เพิ่มชุดเบิก";
     $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
     $("formErr").hidden = true;
+    checkDocNo();
     const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
     $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
     $("overlay").hidden = false;
@@ -757,6 +762,26 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   function closeForm() { $("overlay").hidden = true; editingId = null; }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
+
+  // document numbers are 6 digits (e.g. 000541); warn live while typing, block saving a bad or duplicate number
+  const DOCNO_LEN = 6;
+  function checkDocNo() {
+    const v = $("docNo").value.trim();
+    let msg = "";
+    if (v && /\D/.test(v)) msg = "เลขที่เอกสารต้องเป็นตัวเลขเท่านั้น";
+    else if (v && v.length < DOCNO_LEN) msg = "เลขที่สั้นไป: ใส่ " + v.length + " หลัก ขาดอีก " + (DOCNO_LEN - v.length) + " หลัก (ต้องมี " + DOCNO_LEN + " หลัก)";
+    else if (v.length > DOCNO_LEN) msg = "เลขที่เกิน: ใส่ " + v.length + " หลัก เกินมา " + (v.length - DOCNO_LEN) + " หลัก (ต้องมี " + DOCNO_LEN + " หลัก)";
+    else if (v) {
+      const dup = rows.find((r) => r.docNo === v && r.id !== editingId);
+      if (dup) msg = "เลขที่ " + v + " มีอยู่แล้ว (" + (dup.customer || "ไม่ระบุลูกค้า") + ")";
+    }
+    const hint = $("docNoHint");
+    hint.textContent = msg || (v.length === DOCNO_LEN ? "เลข 6 หลัก ✓" : "เลข 6 หลัก");
+    hint.classList.toggle("bad", !!msg); hint.classList.toggle("good", !msg && v.length === DOCNO_LEN);
+    $("docNo").setAttribute("aria-invalid", String(!!msg));
+    return msg;
+  }
+  $("docNo").addEventListener("input", checkDocNo);
 
   $("form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -771,6 +796,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       data.itemQty[cb.value] = v;
     }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
+    // only the full form shows the number field; quick ship/receive saves must not be blocked by an old-format number
+    const docProblem = mode === "full" ? checkDocNo() : "";
+    if (docProblem) { $("docNo").focus(); return showErr(docProblem); }
     if (data.amount && isNaN(Number(data.amount.replace(/,/g, "")))) return showErr("ยอดเงินต้องเป็นตัวเลข");
     data.amount = data.amount ? String(Number(data.amount.replace(/,/g, ""))) : "";
     if (data.deliveredDate && data.shippedDate && data.deliveredDate < data.shippedDate) return showErr("วันที่ถึงลูกค้าต้องไม่ก่อนวันที่ส่งออก");

@@ -134,12 +134,32 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .rep-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .datebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 /* date boxes show day/month/year whatever the browser language; the native field stays for the picker */
-.dwrap { position: relative; display: block; }
-.datebar .dwrap { display: inline-block; }
-.dwrap input[type=date] { color: transparent; cursor: pointer; }
-.dwrap input[type=date]::-webkit-datetime-edit { opacity: 0; }
-.dwrap .dshow { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; font-variant-numeric: tabular-nums; }
-.dwrap .dshow.empty { color: var(--muted); }
+/* in-page date picker */
+.dp { position: relative; display: block; }
+.datebar .dp { display: inline-block; }
+.dp-btn { width: 100%; text-align: left; cursor: pointer; padding: 9px 36px 9px 12px; border-radius: 10px; font: inherit; color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, var(--surface)) 0%, var(--surface) 100%);
+  box-shadow: inset 0 1px 3px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .8); position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-btn::after { content: ""; position: absolute; right: 12px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); border: 1.5px solid currentColor; border-top-width: 4px; border-radius: 3px; opacity: .65; }
+.dp-btn.empty { color: var(--muted); }
+.dp-btn:hover { border-color: var(--muted); }
+.dp-btn:focus-visible, .dp-btn[aria-expanded="true"] { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.datebar .dp-btn { width: auto; padding-block: 6px; }
+.dp-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 280px; max-width: calc(100vw - 48px); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 12px; display: grid; gap: 8px; box-shadow: 0 2px 6px rgba(25, 20, 45, .08), 0 16px 32px -12px rgba(25, 20, 45, .35); }
+.dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.dp-title { font-family: var(--display); font-weight: 600; }
+.dp-nav { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 1.1rem; line-height: 1; }
+.dp-nav:hover { border-color: var(--muted); }
+.dp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.dp-wd { font-size: .75rem; color: var(--muted); padding: 4px 0; }
+.dp-day { border: 0; background: transparent; border-radius: 8px; padding: 6px 0; font: inherit; font-variant-numeric: tabular-nums; color: var(--ink); }
+.dp-day:hover { background: var(--accent-soft); }
+.dp-day.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.dp-day.sel { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.dp-foot { display: flex; justify-content: space-between; gap: 6px; }
+@media (min-width: 521px) { .grid2 > .f:nth-child(2n) .dp-pop { left: auto; right: 0; } }
 .datebar input { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .rep-title { font-size: 1.25rem; font-weight: 600; }
 .rep-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -262,7 +282,6 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
-input[type=date] { cursor: pointer; }
 .hint.bad { color: var(--late); font-weight: 500; }
 .hint.good { color: var(--done); }
 .f > input[aria-invalid="true"], .f > input[aria-invalid="true"]:focus { border-color: var(--late); box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--late) 20%, transparent); }
@@ -438,33 +457,68 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
   const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
   const thDate = (s) => s ? parse(s).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "";
-  // Native date inputs order their fields by browser language (mm/dd/yyyy in English);
-  // overlay a dd/mm/yyyy label and open the picker on click. .value stays ISO for the rest of the code.
+  // In-page date picker. The browser's own date field cannot be relied on here: inside claude.ai's frame its
+  // calendar is often refused, and its typing order follows the browser language. Each date <input> becomes a
+  // hidden ISO value (YYYY-MM-DD, as the rest of the code expects) plus a button showing the Thai date and a
+  // month calendar with Buddhist-era years. Setting .value from code repaints the button.
+  const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+  const TH_WEEK = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+  const iso = (y, m, d) => y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
   const valueProp = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
-  document.querySelectorAll("input[type=date]").forEach((el) => {
-    const wrap = document.createElement("span");
-    wrap.className = "dwrap";
-    el.parentNode.insertBefore(wrap, el);
-    wrap.appendChild(el);
-    const show = document.createElement("span");
-    show.className = "dshow";
-    show.setAttribute("aria-hidden", "true");
-    wrap.appendChild(show);
+  const openPops = new Set();
+  // composedPath, not contains(): month arrows redraw the calendar, detaching the clicked button before this runs
+  document.addEventListener("click", (e) => { const path = e.composedPath(); openPops.forEach((p) => { if (!path.includes(p.wrap)) p.close(); }); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") openPops.forEach((p) => p.close()); });
+  document.querySelectorAll("input[type=date]").forEach((inp) => {
+    inp.type = "hidden";
+    const wrap = document.createElement("span"); wrap.className = "dp";
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "dp-btn";
+    const pop = document.createElement("div"); pop.className = "dp-pop"; pop.hidden = true;
+    pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "เลือกวันที่");
+    inp.after(wrap); wrap.append(btn, pop);
+    // the picker sits inside a <label>: keep clicks inside it from re-triggering the label
+    pop.addEventListener("click", (e) => e.preventDefault());
+    let view = new Date();
     const paint = () => {
-      const v = valueProp.get.call(el);
-      show.textContent = v ? v.split("-").reverse().join("/") : "วว/ดด/ปปปป";
-      show.classList.toggle("empty", !v);
+      const v = valueProp.get.call(inp);
+      btn.textContent = v ? parse(v).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "long", year: "numeric" }) : "เลือกวันที่";
+      btn.classList.toggle("empty", !v);
     };
-    Object.defineProperty(el, "value", { get: () => valueProp.get.call(el), set: (v) => { valueProp.set.call(el, v); paint(); } });
-    el.addEventListener("input", paint);
-    el.addEventListener("change", paint);
-    const pick = () => { try { el.showPicker(); } catch (e) {} };
-    el.addEventListener("click", (e) => { e.preventDefault(); pick(); });
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Tab") return;
+    Object.defineProperty(inp, "value", { get: () => valueProp.get.call(inp), set: (v) => { valueProp.set.call(inp, v); paint(); } });
+    const choose = (v) => { inp.value = v; close(); inp.dispatchEvent(new Event("change", { bubbles: true })); btn.focus(); };
+    const draw = () => {
+      const y = view.getFullYear(), m = view.getMonth(), cur = inp.value, now = today();
+      pop.replaceChildren();
+      const head = el("div", "dp-head");
+      const prev = el("button", "dp-nav", "‹"); prev.type = "button"; prev.setAttribute("aria-label", "เดือนก่อน");
+      const next = el("button", "dp-nav", "›"); next.type = "button"; next.setAttribute("aria-label", "เดือนถัดไป");
+      prev.onclick = () => { view = new Date(y, m - 1, 1); draw(); };
+      next.onclick = () => { view = new Date(y, m + 1, 1); draw(); };
+      head.append(prev, el("span", "dp-title", TH_MONTHS[m] + " " + (y + 543)), next);
+      const grid = el("div", "dp-grid");
+      TH_WEEK.forEach((w) => grid.append(el("span", "dp-wd", w)));
+      for (let i = 0; i < new Date(y, m, 1).getDay(); i++) grid.append(el("span"));
+      for (let d = 1, n = new Date(y, m + 1, 0).getDate(); d <= n; d++) {
+        const v = iso(y, m, d);
+        const b = el("button", "dp-day" + (v === cur ? " sel" : "") + (v === now ? " today" : ""), String(d)); b.type = "button";
+        b.onclick = () => choose(v);
+        grid.append(b);
+      }
+      const foot = el("div", "dp-foot");
+      const t = el("button", "btn small", "วันนี้"); t.type = "button"; t.onclick = () => choose(now);
+      const c = el("button", "btn small", "ล้างวันที่"); c.type = "button"; c.onclick = () => choose("");
+      foot.append(t, c);
+      pop.append(head, grid, foot);
+    };
+    const close = () => { pop.hidden = true; openPops.delete(api); btn.setAttribute("aria-expanded", "false"); };
+    const api = { wrap, close };
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
-      if (e.key === "Backspace" || e.key === "Delete") { el.value = ""; el.dispatchEvent(new Event("change", { bubbles: true })); }
-      else if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") pick();
+      if (!pop.hidden) return close();
+      openPops.forEach((p) => p.close());
+      const base = inp.value ? parse(inp.value) : new Date();
+      view = new Date(base.getFullYear(), base.getMonth(), 1);
+      draw(); pop.hidden = false; openPops.add(api); btn.setAttribute("aria-expanded", "true");
     });
     paint();
   });
@@ -762,10 +816,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   }
   function closeForm() { $("overlay").hidden = true; editingId = null; }
 
-  // clicking the text part of a date field only lets you type; open the calendar from anywhere in the field
-  document.querySelectorAll("input[type=date]").forEach((inp) => {
-    inp.addEventListener("click", () => { try { inp.showPicker(); } catch {} });
-  });
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 

@@ -806,7 +806,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       : r ? "แก้ไขชุดเบิก " + r.docNo : "เพิ่มชุดเบิก";
     $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
     $("formErr").hidden = true;
-    if (!r) $("preparedDate").value = today();
     checkDocNo();
     const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
     $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));

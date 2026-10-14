@@ -300,7 +300,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
-.co-picks { display: grid; gap: 6px; }
+.co-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
 .co-pick { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted)); border-radius: 10px; background: var(--surface); cursor: pointer; font-size: .92rem; color: var(--ink); line-height: 1.35; }
 .co-pick:hover { border-color: var(--muted); }
 .co-pick:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
@@ -1121,9 +1121,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
 
   // companies: tick one or more; saved as one text field "A, B" so cards, search and CSV keep working.
   // A name saved before (not in the list) still shows as its own tick box, ticked.
-  const COMPANIES = ["บริษัทสำนักพิมพ์ อมตะ จำกัด", "บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป"];
+  const COMPANIES = ["บริษัทสำนักพิมพ์ อมตะ จำกัด", "บริษัทยงสวัสดิ์ อินเตอร์กรุ๊ป", "บริษัทไทยอักษร จำกัด", "บริษัทโชคเจริญ มาร์เก็ตติ้ง จำกัด"];
+  // the earlier spelling, so records saved with it tick the same box instead of showing a duplicate
+  const COMPANY_ALIAS = { "บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป": "บริษัทยงสวัสดิ์ อินเตอร์กรุ๊ป" };
   function drawCompanies(value) {
-    const picked = String(value || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const picked = String(value || "").split(",").map((s) => s.trim()).filter(Boolean).map((s) => COMPANY_ALIAS[s] || s);
     const box = $("coPicks"); box.replaceChildren();
     [...new Set([...COMPANIES, ...picked])].forEach((name, k) => {
       const l = el("label", "co-pick"); const cb = document.createElement("input");

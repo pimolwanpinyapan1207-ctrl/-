@@ -75,6 +75,8 @@ a.trk:hover { text-decoration-thickness: 2px; }
 a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align-items: center; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 
+.moved { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent); color: var(--ink); }
+.moved .btn.primary { color: var(--accent-ink); text-decoration: none; }
 .notice { padding: 10px 14px; border-radius: 8px; background: var(--wait-soft); color: var(--wait); font-size: .9rem; }
 
 /* status strip */
@@ -346,6 +348,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       <button class="btn primary" id="addBtn" type="button">+ เพิ่มชุดเบิก</button>
     </div>
   </header>
+
+  <div class="moved" id="movedBar" hidden>
+    <div><strong>ระบบหลักย้ายไปที่เว็บใหม่แล้ว</strong><br>ทุกคนในทีมเพิ่ม แก้ไข และบันทึกได้ และเห็นข้อมูลชุดเดียวกัน</div>
+    <a class="btn primary" href="https://chi-one-56.vercel.app" target="_blank" rel="noopener">เปิด chi-one-56.vercel.app</a>
+  </div>
 
   <div class="notice" id="notice" hidden></div>
 
@@ -1493,6 +1500,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   });
 
   async function start() {
+    // the claude.ai copy is view-only for link visitors: point everyone at the shared Vercel site
+    if (window.claude) $("movedBar").hidden = false;
     db = window.claude && claude.use ? await claude.use("db") : null;
     if (!db && !window.claude && SUPABASE_URL && (await startSupabase())) return;
     if (!db && window.claude) return showLock("nosignin");   // on claude.ai but not signed in: no data and no sign-in possible

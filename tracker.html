@@ -137,7 +137,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 /* in-page date picker */
 .dp { position: relative; display: block; }
 .datebar .dp { display: inline-block; }
-.dp-btn { width: 100%; text-align: left; cursor: pointer; padding: 9px 36px 9px 12px; border-radius: 10px; font: inherit; color: var(--ink);
+.dp-btn { width: 100%; text-align: left; cursor: pointer; padding: 9px 36px 9px 12px; border-radius: 10px; font: inherit; line-height: inherit; color: var(--ink);
   border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted));
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, var(--surface)) 0%, var(--surface) 100%);
   box-shadow: inset 0 1px 3px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .8); position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -377,8 +377,10 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
         <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
+        <label class="f"><span>บริษัท</span><input id="company" autocomplete="off" list="companyList"></label>
       </div>
       <datalist id="custList"></datalist>
+      <datalist id="companyList"></datalist>
       <div class="f"><span>เอกสารในชุด</span>
         <div class="checks" id="itemChecks"></div>
       </div>
@@ -657,7 +659,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     const q = $("q").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => filter === "all" || statusOf(r) === filter)
-      .filter((r) => !q || [r.docNo, r.customer, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
       .sort((a, b) => {
         const order = { late: 0, wait: 1, move: 2, done: 3 };
         const s = order[statusOf(a)] - order[statusOf(b)];
@@ -685,6 +687,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     const row1 = el("div", "row1");
     row1.append(el("span", "docno", r.docNo || "—"), el("span", "pill " + st, LABEL[st]));
     meta.append(row1, el("div", "cust", r.customer || "—"));
+    if (r.company) meta.append(el("div", "sub", "บริษัท: " + r.company));
     if (r.items && r.items.length) {
       const ch = el("div", "chips");
       r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : "") + (i.includes(CMP_DOCS) ? " cdoc" : i.includes(GROUP) ? " cmp" : ""), itemLabel(r, i))));
@@ -781,7 +784,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     (r.items || []).filter((i) => !FLAGS.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
-  const FIELDS = ["docNo", "customer", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
+  const FIELDS = ["docNo", "customer", "preparedDate", "company", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
 
   function openForm(r, m) {
     editingId = r ? r.id : null; mode = m; delArmed = false;
@@ -806,6 +809,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     checkDocNo();
     const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
     $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
+    const comps = [...new Set(rows.map((x) => x.company).filter(Boolean))].sort();
+    $("companyList").replaceChildren(...comps.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
     $("overlay").hidden = false;
     const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
     setTimeout(() => $(first).focus(), 30);
@@ -913,9 +918,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
 
   // ---------- export ----------
   $("exportBtn").onclick = async () => {
-    const head = ["เลขที่เอกสาร", "ลูกค้า", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
+    const head = ["เลขที่เอกสาร", "ลูกค้า", "บริษัท", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
+    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, r.company, itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
     const csv = "﻿" + lines.join("\r\n");
     try {
       const filename = "ชุดเบิก-" + today() + ".csv";

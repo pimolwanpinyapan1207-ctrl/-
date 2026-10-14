@@ -229,6 +229,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .f > input:hover, .f > select:hover, .f > textarea:hover { border-color: var(--muted); }
 .f > input:focus, .f > select:focus, .f > textarea:focus { outline: none; border-color: var(--accent);
   box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent); }
+.f > select { height: 43px; padding-block: 0; cursor: pointer; }
 .f > span { font-weight: 500; color: color-mix(in srgb, var(--ink) 70%, var(--muted)); }
 /* document-set boxes: each box carries its own colour trio; a ticked box fills with full colour */
 .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
@@ -385,10 +386,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
         <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
-        <label class="f"><span>บริษัท</span><input id="company" autocomplete="off" list="companyList"></label>
+        <label class="f"><span>บริษัท</span><select id="company"><option value="">— เลือกบริษัท —</option><option>บริษัทสำนักพิมพ์ อมตะ จำกัด</option><option>บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป</option></select></label>
       </div>
       <datalist id="custList"></datalist>
-      <datalist id="companyList"></datalist>
       <div class="f"><span>เอกสารในชุด</span>
         <div class="checks" id="itemChecks"></div>
       </div>
@@ -855,8 +855,10 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     checkDocNo();
     const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
     $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
-    const comps = [...new Set(rows.map((x) => x.company).filter(Boolean))].sort();
-    $("companyList").replaceChildren(...comps.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
+    // a company typed in before the list existed still shows (and is kept) when editing that record
+    $("company").querySelectorAll("option.legacy").forEach((o) => o.remove());
+    if (r && r.company && ![...$("company").options].some((o) => o.value === r.company)) { const o = document.createElement("option"); o.className = "legacy"; o.textContent = r.company; $("company").append(o); }
+    $("company").value = (r && r.company) || "";
     $("overlay").hidden = false;
     const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
     setTimeout(() => $(first).focus(), 30);

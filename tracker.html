@@ -262,11 +262,6 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
-.f > input[type=date] { cursor: pointer; }
-.datequick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.datequick .btn.small { padding: 3px 10px; font-size: .78rem; border-radius: 99px; }
-.dateread { font-size: .8rem; color: var(--muted); }
-.dateread.set { color: var(--accent); font-weight: 500; }
 .hint.bad { color: var(--late); font-weight: 500; }
 .hint.good { color: var(--done); }
 .f > input[aria-invalid="true"], .f > input[aria-invalid="true"]:focus { border-color: var(--late); box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--late) 20%, transparent); }
@@ -760,32 +755,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     checkDocNo();
     const custs = [...new Set(rows.map((x) => x.customer).filter(Boolean))].sort();
     $("custList").replaceChildren(...custs.map((c) => { const o = document.createElement("option"); o.value = c; return o; }));
-    refreshDateReads();
     $("overlay").hidden = false;
     const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
     setTimeout(() => $(first).focus(), 30);
   }
   function closeForm() { $("overlay").hidden = true; editingId = null; }
-
-  // date fields: click anywhere opens the calendar, quick "today/yesterday" picks, and the chosen date spelled out in Thai
-  // (the spelled-out date catches day/month mix-ups like 10 Dec vs 12 Oct)
-  const shiftDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
-  const dateReads = [];
-  document.querySelectorAll(".sheet input[type=date]").forEach((inp) => {
-    inp.addEventListener("click", () => { try { inp.showPicker(); } catch {} });
-    const bar = el("div", "datequick");
-    [["วันนี้", 0], ["เมื่อวาน", -1]].forEach(([t, n]) => {
-      const b = el("button", "btn small", t); b.type = "button";
-      b.onclick = (e) => { e.preventDefault(); inp.value = shiftDays(today(), n); upd(); };
-      bar.append(b);
-    });
-    const read = el("span", "dateread"); bar.append(read);
-    const upd = () => { read.textContent = inp.value ? longDate(inp.value) : "ยังไม่ได้เลือกวันที่"; read.classList.toggle("set", !!inp.value); };
-    inp.addEventListener("change", upd); inp.addEventListener("input", upd);
-    inp.closest(".f").append(bar);
-    dateReads.push(upd);
-  });
-  function refreshDateReads() { dateReads.forEach((f) => f()); }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 

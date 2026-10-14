@@ -351,10 +351,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   </div>
 
   <form class="login" id="loginView" hidden novalidate>
-    <h2>เข้าสู่ระบบติดตามเอกสาร</h2>
-    <p>ใช้อีเมลและรหัสผ่านที่ผู้ดูแลสร้างให้ใน Supabase</p>
-    <label class="f"><span>อีเมล</span><input id="loginEmail" type="email" autocomplete="username"></label>
-    <label class="f"><span>รหัสผ่าน</span><input id="loginPass" type="password" autocomplete="current-password"></label>
+    <h2 id="loginTitle">เข้าสู่ระบบติดตามเอกสาร</h2>
+    <p id="loginHint">ใช้อีเมลและรหัสผ่านที่ผู้ดูแลสร้างให้ใน Supabase</p>
+    <label class="f" id="loginEmailRow"><span>อีเมล</span><input id="loginEmail" type="email" autocomplete="username"></label>
+    <label class="f" id="loginPassRow"><span>รหัสผ่าน</span><input id="loginPass" type="password" autocomplete="current-password"></label>
+    <label class="f" id="loginPass2Row" hidden><span>พิมพ์รหัสผ่านอีกครั้ง</span><input id="loginPass2" type="password" autocomplete="new-password"></label>
     <div class="err" id="loginErr" hidden></div>
     <button class="btn primary" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
   </form>
@@ -1276,6 +1277,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   }
   $("loginView").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (lockMode) return lockSubmit();
     const email = $("loginEmail").value.trim(), password = $("loginPass").value;
     if (!email || !password) { $("loginErr").textContent = "กรอกอีเมลและรหัสผ่าน"; $("loginErr").hidden = false; return; }
     $("loginBtn").disabled = true; $("loginErr").hidden = true;
@@ -1291,7 +1293,77 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     }
     else $("loginPass").value = "";
   });
-  $("signOutBtn").onclick = () => sb && sb.auth.signOut();
+  $("signOutBtn").onclick = () => {
+    if (lockMode) { ssSet(""); showLock("login"); return; }
+    if (sb) sb.auth.signOut();
+  };
+
+  // ---------- password lock for the claude.ai page ----------
+  // The claude.ai page cannot reach Supabase, so it uses one shared team password. Its PBKDF2 hash sits in the
+  // db doc settings/lock, which only the page's owner/editors can change. This locks the screen for whoever opens
+  // the link; it is not encryption, so anyone the artifact is shared with could still reach the data by other means.
+  let lockMode = "";   // "" = Supabase sign-in (Vercel) · "login" = page password · "set" = first-time setup · "none" = not set up yet
+  let lockDoc = null, lockAdmin = false;
+  const LOCK_KEY = "tracker-unlocked";
+  const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  async function pwHash(pw, salt) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 150000 }, key, 256);
+    return hex(bits);
+  }
+  async function newLock(pw) {
+    const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+    return { salt, hash: await pwHash(pw, salt), updatedAt: new Date().toISOString() };
+  }
+  const ssGet = () => { try { return sessionStorage.getItem(LOCK_KEY); } catch { return null; } };
+  const ssSet = (v) => { try { if (v) sessionStorage.setItem(LOCK_KEY, v); else sessionStorage.removeItem(LOCK_KEY); } catch {} };
+  const lockErr = (m) => { $("loginErr").textContent = m; $("loginErr").hidden = false; };
+  function showLock(mode) {
+    lockMode = mode;
+    $("loginTitle").textContent = mode === "set" ? "ตั้งรหัสผ่านของระบบติดตามเอกสาร" : "เข้าสู่ระบบติดตามเอกสาร";
+    $("loginHint").textContent = mode === "set" ? "ยังไม่มีรหัสผ่าน ตั้งรหัสอย่างน้อย 8 ตัว แล้วแจ้งรหัสให้ทีมที่ใช้ระบบ"
+      : mode === "none" ? "ผู้ดูแลยังไม่ได้ตั้งรหัสผ่าน ให้เจ้าของหน้านี้เปิดหน้าเพื่อตั้งรหัสก่อน" : "ใส่รหัสผ่านของระบบ";
+    $("loginEmailRow").hidden = true;
+    $("loginPassRow").hidden = $("loginBtn").hidden = mode === "none";
+    $("loginPass2Row").hidden = mode !== "set";
+    $("loginPass").autocomplete = mode === "set" ? "new-password" : "current-password";
+    $("loginBtn").textContent = mode === "set" ? "ตั้งรหัสผ่านและเข้าสู่ระบบ" : "เข้าสู่ระบบ";
+    $("loginErr").hidden = true; $("loginPass").value = $("loginPass2").value = "";
+    sbLocked(true);
+    if (mode !== "none") setTimeout(() => $("loginPass").focus(), 30);
+  }
+  function unlockPage() {
+    lockMode = "login"; sbLocked(false);
+    $("userEmail").textContent = "เข้าสู่ระบบแล้ว";
+    $("pwBtn").hidden = !lockAdmin;   // only the owner/editors can change the team password
+  }
+  async function lockSubmit() {
+    const pw = $("loginPass").value;
+    if (!pw) return lockErr("กรอกรหัสผ่าน");
+    $("loginBtn").disabled = true; $("loginErr").hidden = true;
+    try {
+      if (lockMode === "set") {
+        if (pw.length < 8) return lockErr("รหัสผ่านต้องมีอย่างน้อย 8 ตัว");
+        if (pw !== $("loginPass2").value) return lockErr("รหัสผ่านทั้ง 2 ช่องไม่ตรงกัน");
+        const doc = await newLock(pw);
+        try { await db.doc("settings/lock").set(doc); } catch { return lockErr("ตั้งรหัสไม่สำเร็จ ต้องเป็นเจ้าของหรือผู้แก้ไขหน้านี้"); }
+        lockDoc = doc; ssSet(doc.hash); unlockPage(); toast("ตั้งรหัสผ่านแล้ว แจ้งรหัสให้ทีมได้เลย", 5000);
+        return;
+      }
+      if ((await pwHash(pw, lockDoc.salt)) !== lockDoc.hash) return lockErr("รหัสผ่านไม่ถูกต้อง");
+      ssSet(lockDoc.hash); unlockPage();
+    } catch { lockErr("ตรวจรหัสผ่านไม่สำเร็จ ลองรีเฟรชหน้าแล้วเข้าใหม่"); }
+    finally { $("loginBtn").disabled = false; $("loginPass").value = $("loginPass2").value = ""; }
+  }
+  async function startLock() {
+    document.body.classList.add("locked");   // hide the data straight away while the lock state loads
+    try { const u = await claude.use("user"); lockAdmin = u ? await u.canEdit() : false; } catch {}
+    let snap = null;
+    try { snap = await db.doc("settings/lock").get(); } catch {}
+    lockDoc = snap && snap.exists ? snap.data() : null;
+    if (!lockDoc) return showLock(lockAdmin ? "set" : "none");
+    if (ssGet() === lockDoc.hash) unlockPage(); else showLock("login");
+  }
 
   // change password: check the current one first, then set the new one on the Supabase account
   const pwErr = (m) => { $("pwErr").textContent = m; $("pwErr").hidden = false; };
@@ -1307,6 +1379,18 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     if (pw !== pw2) return pwErr("รหัสผ่านใหม่ทั้ง 2 ช่องไม่ตรงกัน");
     if (pw === oldPw) return pwErr("รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม");
     $("pwSave").disabled = true; $("pwErr").hidden = true;
+    if (lockMode) {   // claude.ai page: change the shared team password
+      try {
+        if (!lockAdmin) return pwErr("เฉพาะเจ้าของหรือผู้แก้ไขหน้านี้เปลี่ยนรหัสผ่านได้");
+        if ((await pwHash(oldPw, lockDoc.salt)) !== lockDoc.hash) return pwErr("รหัสผ่านปัจจุบันไม่ถูกต้อง");
+        const doc = await newLock(pw);
+        await db.doc("settings/lock").set(doc);
+        lockDoc = doc; ssSet(doc.hash);
+        pwClose(); toast("เปลี่ยนรหัสผ่านแล้ว แจ้งรหัสใหม่ให้ทีมด้วย", 5000);
+      } catch { pwErr("เปลี่ยนรหัสผ่านไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+      finally { $("pwSave").disabled = false; }
+      return;
+    }
     try {
       const { data } = await sb.auth.getSession();
       const email = data.session && data.session.user.email;
@@ -1324,6 +1408,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     if (!db && !window.claude && SUPABASE_URL && (await startSupabase())) return;
     if (!db) return offline("เปิดนอก claude.ai: ข้อมูลบันทึกไว้ในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่แชร์กับเครื่องอื่น และไม่รวมกับข้อมูลบน claude.ai กด “ส่งออกเป็น Excel (CSV)” เป็นประจำเพื่อสำรองข้อมูล", true);
     col = db.collection("docsets");
+    startLock();
     try {
       const u = await claude.use("user");
       const w = u ? await u.can("data.write") : null;

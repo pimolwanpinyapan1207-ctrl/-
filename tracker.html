@@ -478,6 +478,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   const CMP_DOCS = "เอกสารบริษัทคู่เทียบ", CMP_DOCS_NONE = "ไม่มีเอกสารบริษัทคู่เทียบ";
   const CMP_DOC_SUBS = ["ป.อินเตอร์", "ประยูร", "ฟีนิกซ์"].map((s) => CMP_DOCS + " " + s);
   const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO, CMP_DOCS_NONE]);
+  // contracts: no copy count (only "ส่งกลับกี่ชุด"), and not in the ฉบับ/ชุด totals
+  const NOQTY = new Set(["สัญญาซื้อขาย", "สัญญาจ้างทำของ"]);
   const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name.startsWith(CMP_DOCS) ? "ชุด" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
   const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
@@ -642,7 +644,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     const transit = rows.filter((r) => r.shippedDate && r.shippedDate <= D && (!r.deliveredDate || r.deliveredDate > D));
     const late = transit.filter((r) => daysBetween(r.shippedDate, D) > lateDays());
     const docs = {};
-    shipped.forEach((r) => (r.items || []).filter((i) => !FLAGS.has(i)).forEach((i) => { docs[i] = (docs[i] || 0) + qtyOf(r, i); }));
+    shipped.forEach((r) => (r.items || []).filter((i) => !FLAGS.has(i) && !NOQTY.has(i)).forEach((i) => { docs[i] = (docs[i] || 0) + qtyOf(r, i); }));
     const byCustomer = (a, b) => String(a.customer).localeCompare(String(b.customer), "th");
     [shipped, delivered, added, pending, transit].forEach((l) => l.sort(byCustomer));
     late.sort((a, b) => a.shippedDate.localeCompare(b.shippedDate));
@@ -934,7 +936,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
         if (o !== cb && o.checked && (f.solo || o.dataset.solo)) { o.checked = false; o.dispatchEvent(new Event("change")); }
       });
     });
-    if (FLAGS.has(name)) { n.type = "hidden"; box.append(l, n); }
+    if (FLAGS.has(name) || NOQTY.has(name)) { n.type = "hidden"; box.append(l, n); }
     else box.append(l, n, el("span", "unit", unitOf(name)));
     if (f.ret) {
       const rs = document.createElement("select"); rs.id = "ret" + i; rs.className = "ret"; rs.disabled = true;
@@ -948,12 +950,12 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
   const retOf = (r, name) => (r && r.itemReturn && Number(r.itemReturn[name]) >= 1 ? Number(r.itemReturn[name]) : 0);
-  const itemLabel = (r, i) => (FLAGS.has(i) ? i : qtyLabel(i, qtyOf(r, i)) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
+  const itemLabel = (r, i) => (FLAGS.has(i) ? i : (NOQTY.has(i) ? i : qtyLabel(i, qtyOf(r, i))) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
   const totalText = (r) => {
     const t = {};
-    (r.items || []).filter((i) => !FLAGS.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
+    (r.items || []).filter((i) => !FLAGS.has(i) && !NOQTY.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
   const FIELDS = ["docNo", "customer", "preparedDate", "company", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];

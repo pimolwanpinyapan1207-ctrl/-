@@ -328,6 +328,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
 .login h2 { font-size: 1.2rem; }
 .login p { margin: 0; color: var(--muted); font-size: .9rem; }
 .pw-sheet { width: min(420px, 100%); }
+.linkbtn { border: 0; background: none; color: var(--accent); font: inherit; font-size: .9rem; cursor: pointer; padding: 4px; justify-self: center; text-decoration: underline; text-underline-offset: 2px; }
 .users { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .users li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow-wrap: anywhere; }
 .users .u-empty { color: var(--muted); }
@@ -363,6 +364,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     <label class="f" id="loginPass2Row" hidden><span>พิมพ์รหัสผ่านอีกครั้ง</span><input id="loginPass2" type="password" autocomplete="new-password"></label>
     <div class="err" id="loginErr" hidden></div>
     <button class="btn primary" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
+    <button class="linkbtn" type="button" id="loginSwitch" hidden>ยังไม่มีบัญชี? สมัครใช้งาน</button>
   </form>
 
   <nav class="tabs" role="tablist">
@@ -1321,11 +1323,13 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   };
 
   // ---------- email + password sign-in for the claude.ai page ----------
-  // The claude.ai page cannot reach Supabase, so it keeps its own accounts: db docs accounts/<email> holding a
-  // PBKDF2 hash, which only the page's owner/editors can create, reset or delete. This locks the screen for whoever
-  // opens the link; it is not encryption, so anyone the artifact is shared with could still reach the data by other means.
-  let lockMode = "";   // "" = Supabase sign-in (Vercel) · "login" = page sign-in · "set" = first account · "none" = no accounts yet
-  let lockAdmin = false, me = null;   // me = signed-in account { id, email, hash }
+  // The claude.ai page cannot reach Supabase, so it keeps its own accounts in the db collection "accounts":
+  // { email, salt, hash (PBKDF2) }. Anyone who can use the page signs up for themselves (their doc is
+  // accounts/<their claude.ai user id>, which only they can write); the page's owner/editors can also add, reset
+  // and delete accounts. This locks the screen for whoever opens the link; it is not encryption, so anyone the
+  // artifact is shared with could still reach the data by other means.
+  let lockMode = "";   // "" = Supabase sign-in (Vercel) · "login" · "signup" · "nosignin" = viewer not signed in to claude.ai
+  let lockAdmin = false, myUid = null, me = null;   // me = signed-in account { id, email, hash }
   const LOCK_KEY = "tracker-signed-in";
   const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
   async function pwHash(pw, salt) {
@@ -1333,69 +1337,75 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: new TextEncoder().encode(salt), iterations: 150000 }, key, 256);
     return hex(bits);
   }
-  const acctId = (email) => email.trim().toLowerCase().replace(/[^a-z0-9_.~:@+-]/g, "_");
-  const acctRef = (email) => db.doc("accounts/" + acctId(email));
-  async function saveAccount(email, pw) {
+  const normEmail = (e) => e.trim().toLowerCase();
+  const emailDocId = (email) => normEmail(email).replace(/[^a-z0-9_.~:@+-]/g, "_");   // ids for accounts an admin adds
+  async function saveAccount(id, email, pw) {
     const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
-    const doc = { email: email.trim().toLowerCase(), salt, hash: await pwHash(pw, salt), updatedAt: new Date().toISOString() };
-    await acctRef(email).set(doc);
+    const doc = { email: normEmail(email), salt, hash: await pwHash(pw, salt), updatedAt: new Date().toISOString() };
+    await db.doc("accounts/" + id).set(doc);
     return doc;
   }
+  const findAccounts = async (email) => (await db.collection("accounts").where("email", "==", normEmail(email)).get()).docs;
   const validEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const ssGet = () => { try { return JSON.parse(sessionStorage.getItem(LOCK_KEY) || "null"); } catch { return null; } };
   const ssSet = (v) => { try { if (v) sessionStorage.setItem(LOCK_KEY, JSON.stringify(v)); else sessionStorage.removeItem(LOCK_KEY); } catch {} };
   const lockErr = (m) => { $("loginErr").textContent = m; $("loginErr").hidden = false; };
   function showLock(mode) {
     lockMode = mode;
-    $("loginTitle").textContent = mode === "set" ? "สร้างบัญชีผู้ดูแลระบบติดตามเอกสาร" : "เข้าสู่ระบบติดตามเอกสาร";
-    $("loginHint").textContent = mode === "set" ? "ยังไม่มีบัญชีผู้ใช้ สร้างบัญชีแรกของคุณ (รหัสผ่านอย่างน้อย 8 ตัว) แล้วเพิ่มบัญชีให้ทีมได้ที่ปุ่ม “จัดการผู้ใช้”"
-      : mode === "none" ? "ผู้ดูแลยังไม่ได้สร้างบัญชีผู้ใช้ ให้เจ้าของหน้านี้เปิดหน้าเพื่อสร้างบัญชีก่อน" : "ใช้อีเมลและรหัสผ่านที่ผู้ดูแลสร้างให้";
-    $("loginEmailRow").hidden = $("loginPassRow").hidden = $("loginBtn").hidden = mode === "none";
-    $("loginPass2Row").hidden = mode !== "set";
-    $("loginPass").autocomplete = mode === "set" ? "new-password" : "current-password";
-    $("loginBtn").textContent = mode === "set" ? "สร้างบัญชีและเข้าสู่ระบบ" : "เข้าสู่ระบบ";
+    const signup = mode === "signup", off = mode === "nosignin";
+    $("loginTitle").textContent = signup ? "สมัครใช้งานระบบติดตามเอกสาร" : "เข้าสู่ระบบติดตามเอกสาร";
+    $("loginHint").textContent = signup ? "ตั้งอีเมลและรหัสผ่านของคุณเอง (รหัสผ่านอย่างน้อย 8 ตัว) แล้วใช้เข้าสู่ระบบครั้งต่อไป"
+      : off ? "ต้องลงชื่อเข้าใช้ claude.ai ก่อน แล้วเปิดลิงก์นี้อีกครั้ง" : "ใส่อีเมลและรหัสผ่านของคุณ";
+    $("loginEmailRow").hidden = $("loginPassRow").hidden = $("loginBtn").hidden = $("loginSwitch").hidden = off;
+    $("loginPass2Row").hidden = !signup;
+    $("loginPass").autocomplete = signup ? "new-password" : "current-password";
+    $("loginBtn").textContent = signup ? "สมัครและเข้าสู่ระบบ" : "เข้าสู่ระบบ";
+    $("loginSwitch").textContent = signup ? "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" : "ยังไม่มีบัญชี? สมัครใช้งาน";
     $("loginErr").hidden = true; $("loginPass").value = $("loginPass2").value = "";
     sbLocked(true);
-    if (mode !== "none") setTimeout(() => $("loginEmail").focus(), 30);
+    if (!off) setTimeout(() => $("loginEmail").focus(), 30);
   }
+  $("loginSwitch").onclick = () => showLock(lockMode === "signup" ? "login" : "signup");
   function unlockPage(acct) {
     me = acct; lockMode = "login"; sbLocked(false);
     $("userEmail").textContent = "เข้าสู่ระบบเป็น " + acct.email;
-    $("pwBtn").hidden = $("usersBtn").hidden = !lockAdmin;   // accounts can only be changed by the page's owner/editors
+    $("usersBtn").hidden = !lockAdmin;
+    $("pwBtn").hidden = !(lockAdmin || acct.id === myUid);   // you can change a password you set yourself; others ask an admin
   }
   async function lockSubmit() {
-    const email = $("loginEmail").value.trim().toLowerCase(), pw = $("loginPass").value;
+    const email = normEmail($("loginEmail").value), pw = $("loginPass").value;
     if (!email || !pw) return lockErr("กรอกอีเมลและรหัสผ่าน");
     if (!validEmail(email)) return lockErr("รูปแบบอีเมลไม่ถูกต้อง");
     $("loginBtn").disabled = true; $("loginErr").hidden = true;
     try {
-      if (lockMode === "set") {
+      const found = await findAccounts(email);
+      if (lockMode === "signup") {
         if (pw.length < 8) return lockErr("รหัสผ่านต้องมีอย่างน้อย 8 ตัว");
         if (pw !== $("loginPass2").value) return lockErr("รหัสผ่านทั้ง 2 ช่องไม่ตรงกัน");
+        if (found.some((d) => d.id !== myUid)) return lockErr("อีเมลนี้มีบัญชีอยู่แล้ว กด “เข้าสู่ระบบ” แทน หรือให้ผู้ดูแลตั้งรหัสใหม่ให้");
+        if (!myUid) return lockErr("สมัครไม่ได้ ต้องลงชื่อเข้าใช้ claude.ai ก่อน");
         let doc;
-        try { doc = await saveAccount(email, pw); } catch { return lockErr("สร้างบัญชีไม่สำเร็จ ต้องเป็นเจ้าของหรือผู้แก้ไขหน้านี้"); }
-        const acct = { id: acctId(email), email: doc.email, hash: doc.hash };
-        ssSet(acct); unlockPage(acct); toast("สร้างบัญชีแล้ว เพิ่มบัญชีให้ทีมได้ที่ปุ่ม “จัดการผู้ใช้”", 6000);
+        try { doc = await saveAccount(myUid, email, pw); } catch { return lockErr("สมัครไม่สำเร็จ คุณมีสิทธิ์ดูหน้านี้อย่างเดียว ขอสิทธิ์ใช้งานจากเจ้าของหน้า"); }
+        const acct = { id: myUid, email: doc.email, hash: doc.hash };
+        ssSet(acct); unlockPage(acct); toast("สมัครใช้งานแล้ว ครั้งหน้าเข้าสู่ระบบด้วยอีเมลและรหัสผ่านนี้", 6000);
         return;
       }
-      const snap = await acctRef(email).get();
-      const d = snap.exists ? snap.data() : null;
-      if (!d || (await pwHash(pw, d.salt)) !== d.hash) return lockErr("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-      const acct = { id: acctId(email), email: d.email, hash: d.hash };
+      let hit = null;
+      for (const d of found) if ((await pwHash(pw, d.data().salt)) === d.data().hash) { hit = d; break; }
+      if (!hit) return lockErr(found.length ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "ยังไม่มีบัญชีของอีเมลนี้ กด “สมัครใช้งาน” ด้านล่าง");
+      const acct = { id: hit.id, email: hit.data().email, hash: hit.data().hash };
       ssSet(acct); unlockPage(acct);
     } catch { lockErr("ตรวจรหัสผ่านไม่สำเร็จ ลองรีเฟรชหน้าแล้วเข้าใหม่"); }
     finally { $("loginBtn").disabled = false; $("loginPass").value = $("loginPass2").value = ""; }
   }
   async function startLock() {
     document.body.classList.add("locked");   // hide the data straight away while the sign-in state loads
-    try { const u = await claude.use("user"); lockAdmin = u ? await u.canEdit() : false; } catch {}
-    let accounts = [];
-    try { accounts = (await db.collection("accounts").get()).docs; } catch {}
-    if (!accounts.length) return showLock(lockAdmin ? "set" : "none");
+    try { const u = await claude.use("user"); if (u) { lockAdmin = await u.canEdit(); myUid = await u.id(); } } catch {}
     // stay signed in for this browser tab while the account still exists with the same password
     const s = ssGet();
-    const d = s && accounts.find((x) => x.id === s.id);
-    if (d && d.data().hash === s.hash) unlockPage(s); else showLock("login");
+    let d = null;
+    try { d = s && s.id ? await db.doc("accounts/" + s.id).get() : null; } catch {}
+    if (d && d.exists && d.data().hash === s.hash) unlockPage(s); else showLock("login");
   }
 
   // ---------- manage accounts (owner/editors only) ----------
@@ -1404,14 +1414,16 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     let docs = [];
     try { docs = (await db.collection("accounts").get()).docs; } catch {}
     list.replaceChildren();
-    docs.map((d) => d.data()).sort((a, b) => a.email.localeCompare(b.email)).forEach((u) => {
-      const li = el("li"); li.append(el("span", "u-email", u.email + (me && u.email === me.email ? " (คุณ)" : "")));
-      if (!me || u.email !== me.email) {
+    if (!docs.length) list.append(el("li", "u-empty", "ยังไม่มีบัญชี"));
+    docs.sort((a, b) => String(a.data().email).localeCompare(String(b.data().email))).forEach((doc) => {
+      const u = doc.data(), mine = me && doc.id === me.id;
+      const li = el("li"); li.append(el("span", "u-email", u.email + (mine ? " (คุณ)" : "")));
+      if (!mine) {
         let armed = false;
         const del = el("button", "btn small danger", "ลบ"); del.type = "button";
         del.onclick = async () => {
           if (!armed) { armed = true; del.textContent = "กดอีกครั้งเพื่อลบ"; return; }
-          try { await acctRef(u.email).delete(); toast("ลบบัญชี " + u.email + " แล้ว"); drawUsers(); } catch { toast("ลบบัญชีไม่สำเร็จ"); }
+          try { await db.doc("accounts/" + doc.id).delete(); toast("ลบบัญชี " + u.email + " แล้ว"); drawUsers(); } catch { toast("ลบบัญชีไม่สำเร็จ"); }
         };
         li.append(del);
       }
@@ -1423,16 +1435,18 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   $("usersOverlay").addEventListener("click", (e) => { if (e.target === $("usersOverlay")) $("usersClose").click(); });
   $("usersForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const email = $("uEmail").value.trim().toLowerCase(), pw = $("uPass").value;
+    const email = normEmail($("uEmail").value), pw = $("uPass").value;
     const err = (m) => { $("usersErr").textContent = m; $("usersErr").hidden = false; };
     if (!validEmail(email)) return err("รูปแบบอีเมลไม่ถูกต้อง");
     if (pw.length < 8) return err("รหัสผ่านต้องมีอย่างน้อย 8 ตัว");
     $("usersErr").hidden = true; $("uSave").disabled = true;
     try {
-      const existed = (await acctRef(email).get()).exists;
-      await saveAccount(email, pw);
+      const found = await findAccounts(email);
+      // a reset replaces every account with that email by one with the new password
+      for (const d of found.slice(1)) await db.doc("accounts/" + d.id).delete();
+      await saveAccount(found.length ? found[0].id : emailDocId(email), email, pw);
       $("uEmail").value = $("uPass").value = "";
-      toast(existed ? "ตั้งรหัสผ่านใหม่ให้ " + email + " แล้ว" : "เพิ่มบัญชี " + email + " แล้ว", 5000);
+      toast(found.length ? "ตั้งรหัสผ่านใหม่ให้ " + email + " แล้ว" : "เพิ่มบัญชี " + email + " แล้ว", 5000);
       drawUsers();
     } catch { err("บันทึกไม่สำเร็จ ต้องเป็นเจ้าของหรือผู้แก้ไขหน้านี้"); }
     finally { $("uSave").disabled = false; }
@@ -1454,10 +1468,10 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     $("pwSave").disabled = true; $("pwErr").hidden = true;
     if (lockMode) {   // claude.ai page: change the signed-in account's password
       try {
-        if (!lockAdmin) return pwErr("เฉพาะเจ้าของหรือผู้แก้ไขหน้านี้เปลี่ยนรหัสผ่านได้ คนอื่นให้ผู้ดูแลตั้งรหัสใหม่ให้");
-        const snap = await acctRef(me.email).get(); const d = snap.exists ? snap.data() : null;
+        if (!(lockAdmin || me.id === myUid)) return pwErr("บัญชีนี้ผู้ดูแลเป็นคนสร้าง ให้ผู้ดูแลตั้งรหัสใหม่ให้ที่ “จัดการผู้ใช้”");
+        const snap = await db.doc("accounts/" + me.id).get(); const d = snap.exists ? snap.data() : null;
         if (!d || (await pwHash(oldPw, d.salt)) !== d.hash) return pwErr("รหัสผ่านปัจจุบันไม่ถูกต้อง");
-        const doc = await saveAccount(me.email, pw);
+        const doc = await saveAccount(me.id, me.email, pw);
         me = { ...me, hash: doc.hash }; ssSet(me);
         pwClose(); toast("เปลี่ยนรหัสผ่านแล้ว ครั้งหน้าเข้าสู่ระบบด้วยรหัสใหม่", 5000);
       } catch { pwErr("เปลี่ยนรหัสผ่านไม่สำเร็จ ลองใหม่อีกครั้ง"); }
@@ -1479,6 +1493,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   async function start() {
     db = window.claude && claude.use ? await claude.use("db") : null;
     if (!db && !window.claude && SUPABASE_URL && (await startSupabase())) return;
+    if (!db && window.claude) return showLock("nosignin");   // on claude.ai but not signed in: no data and no sign-in possible
     if (!db) return offline("เปิดนอก claude.ai: ข้อมูลบันทึกไว้ในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่แชร์กับเครื่องอื่น และไม่รวมกับข้อมูลบน claude.ai กด “ส่งออกเป็น Excel (CSV)” เป็นประจำเพื่อสำรองข้อมูล", true);
     col = db.collection("docsets");
     startLock();

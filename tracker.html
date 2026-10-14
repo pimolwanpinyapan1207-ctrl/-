@@ -505,7 +505,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     inp.type = "hidden";
     const wrap = document.createElement("span"); wrap.className = "dp";
     const txt = document.createElement("input"); txt.type = "text"; txt.className = "dp-input"; txt.inputMode = "numeric";
-    txt.placeholder = "วว/ดด/ปปปป"; txt.autocomplete = "off"; txt.setAttribute("aria-label", "วันที่ (พิมพ์ วว/ดด/ปปปป หรือกดเลือกจากปฏิทิน)");
+    txt.placeholder = "ว/ด/ป"; txt.autocomplete = "off"; txt.setAttribute("aria-label", "วันที่ (พิมพ์ ว/ด/ป หรือกดเลือกจากปฏิทิน)");
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "dp-icon"; btn.setAttribute("aria-label", "เปิดปฏิทิน");
     const read = el("span", "dp-read");
     const pop = document.createElement("div"); pop.className = "dp-pop"; pop.hidden = true;
@@ -570,7 +570,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       if (!txt.value.trim()) { commit(""); return; }
       const v = parseTyped(txt.value);
       if (v) commit(v);
-      else { txt.setAttribute("aria-invalid", "true"); read.textContent = "วันที่ไม่ถูกต้อง พิมพ์แบบ วว/ดด/ปปปป เช่น 14/10/2569"; read.classList.add("bad"); }
+      else { txt.setAttribute("aria-invalid", "true"); read.textContent = "วันที่ไม่ถูกต้อง พิมพ์แบบ ว/ด/ป เช่น 14/10/2569"; read.classList.add("bad"); }
     };
     txt.addEventListener("blur", check);
     txt.addEventListener("keydown", (e) => {
@@ -980,7 +980,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       data.itemQty[cb.value] = v;
     }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
-    if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ วว/ดด/ปปปป ก่อนบันทึก");
+    if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ ว/ด/ป ก่อนบันทึก");
     // only the full form shows the number field; quick ship/receive saves must not be blocked by an old-format number
     const docProblem = mode === "full" ? checkDocNo() : "";
     if (docProblem) { $("docNo").focus(); return showErr(docProblem); }

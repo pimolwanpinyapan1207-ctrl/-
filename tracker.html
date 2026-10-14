@@ -300,6 +300,11 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .sheet .foot .right { display: flex; gap: 8px; margin-left: auto; }
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
+.co-picks { display: grid; gap: 6px; }
+.co-pick { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted)); border-radius: 10px; background: var(--surface); cursor: pointer; font-size: .92rem; color: var(--ink); line-height: 1.35; }
+.co-pick:hover { border-color: var(--muted); }
+.co-pick:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.co-pick input { width: 18px; height: 18px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
@@ -444,7 +449,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
         <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest"></label>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
-        <label class="f"><span>บริษัท</span><select id="company"><option value="">— เลือกบริษัท —</option><option>บริษัทสำนักพิมพ์ อมตะ จำกัด</option><option>บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป</option></select></label>
+        <div class="f"><span>บริษัท (เลือกได้มากกว่า 1)</span><input type="hidden" id="company"><div class="co-picks" id="coPicks"></div></div>
       </div>
       <div class="f"><span>เอกสารในชุด</span>
         <div class="checks" id="itemChecks"></div>
@@ -1031,10 +1036,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
     $("formErr").hidden = true;
     checkDocNo();
-    // a company typed in before the list existed still shows (and is kept) when editing that record
-    $("company").querySelectorAll("option.legacy").forEach((o) => o.remove());
-    if (r && r.company && ![...$("company").options].some((o) => o.value === r.company)) { const o = document.createElement("option"); o.className = "legacy"; o.textContent = r.company; $("company").append(o); }
-    $("company").value = (r && r.company) || "";
+    drawCompanies((r && r.company) || "");
     $("overlay").hidden = false;
     const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
     setTimeout(() => $(first).focus(), 30);
@@ -1116,6 +1118,21 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   }
   placeSuggest($("customer"), "cust");
   placeSuggest($("histQ"), "hist", () => renderHistory());
+
+  // companies: tick one or more; saved as one text field "A, B" so cards, search and CSV keep working.
+  // A name saved before (not in the list) still shows as its own tick box, ticked.
+  const COMPANIES = ["บริษัทสำนักพิมพ์ อมตะ จำกัด", "บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป"];
+  function drawCompanies(value) {
+    const picked = String(value || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const box = $("coPicks"); box.replaceChildren();
+    [...new Set([...COMPANIES, ...picked])].forEach((name, k) => {
+      const l = el("label", "co-pick"); const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.id = "co" + k; cb.value = name; cb.checked = picked.includes(name);
+      cb.addEventListener("change", () => { $("company").value = [...box.querySelectorAll("input:checked")].map((x) => x.value).join(", "); });
+      l.append(cb, el("span", null, name)); box.append(l);
+    });
+    $("company").value = picked.join(", ");
+  }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 

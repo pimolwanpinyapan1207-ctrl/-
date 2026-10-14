@@ -807,6 +807,25 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     for (const r of shown) list.append(card(r));
   }
 
+  async function pullPost(r, btn, label) {
+    btn.disabled = true; btn.textContent = "กำลังเช็คกับไปรษณีย์…";
+    try {
+      const { data } = await sb.auth.getSession();
+      const res = await fetch("/api/track?barcode=" + encodeURIComponent(r.tracking), { headers: { Authorization: "Bearer " + (data.session ? data.session.access_token : "") } });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) return toast(j.message || "เช็คสถานะไม่สำเร็จ ลองใหม่อีกครั้ง", 5000);
+      if (!j.found) return toast("ไปรษณีย์ยังไม่มีข้อมูลของเลขพัสดุ " + r.tracking, 5000);
+      if (!j.delivered) {
+        const l = j.latest || {};
+        return toast("ยังไม่ถึงผู้รับ · ล่าสุด: " + (l.text || "-") + (l.location ? " (" + l.location + ")" : "") + (l.date ? " " + thDate(l.date) + " " + l.time + " น." : ""), 7000);
+      }
+      const { id, ...rest } = r;
+      await col.doc(id).set({ ...rest, deliveredDate: j.date || rest.deliveredDate || today(), deliveredTime: j.time || "", receiver: j.receiver || rest.receiver || "", updatedAt: new Date().toISOString() });
+      toast("ถึงลูกค้าแล้ว · ผู้รับ: " + (j.receiver || "ไปรษณีย์ไม่ระบุชื่อ") + (j.time ? " · เวลา " + j.time + " น." : ""), 7000);
+    } catch { toast("เช็คสถานะไม่สำเร็จ ลองใหม่อีกครั้ง", 5000); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  }
+
   function card(r) {
     const st = statusOf(r);
     const c = el("article", "card" + (st === "late" ? " is-late" : ""));
@@ -848,7 +867,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     const s = [
       { t: "เตรียมชุดเอกสาร", d: r.preparedDate, w: "" },
       { t: "ส่งออก", d: r.shippedDate, w: shipNote },
-      { t: "ถึงลูกค้า", d: r.deliveredDate, w: r.receiver ? "ผู้รับ: " + r.receiver : "" },
+      { t: "ถึงลูกค้า", d: r.deliveredDate, w: [r.receiver && "ผู้รับ: " + r.receiver, r.deliveredTime && "เวลา " + r.deliveredTime + " น."].filter(Boolean).join(" · ") },
     ];
     // a later step being done implies earlier ones are done
     const on = [!!(r.preparedDate || r.shippedDate || r.deliveredDate), !!(r.shippedDate || r.deliveredDate), !!r.deliveredDate];
@@ -868,6 +887,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
         catch { toast("เลขพัสดุ: " + r.tracking); }
       };
       acts.append(cp);
+      // Vercel + Supabase only: ask Thailand Post who signed for it and when (needs THPOST_API_KEY on Vercel)
+      if (sb && canWrite && r.shippedDate) {
+        const label = r.deliveredDate ? "เช็คผู้รับจากไปรษณีย์อีกครั้ง" : "เช็คผู้รับจากไปรษณีย์";
+        const pb = el("button", "btn small", label); pb.type = "button"; pb.onclick = () => pullPost(r, pb, label); acts.append(pb);
+      }
     }
     if (canWrite) {
       if (st === "wait") { const b = el("button", "btn primary small", "บันทึกการส่งออก"); b.type = "button"; b.onclick = () => openForm(r, "ship"); acts.append(b); }
@@ -1047,6 +1071,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     const data = {};
     FIELDS.forEach((f) => { data[f] = $(f).value.trim(); });
     if (!data.preparedDate) data.preparedDate = today();
+    // receive time comes from Thailand Post, not the form: keep it while the received date is unchanged
+    const before = editingId ? rows.find((x) => x.id === editingId) : null;
+    data.deliveredTime = before && before.deliveredDate === data.deliveredDate ? before.deliveredTime || "" : "";
     const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
     data.items = checked.map((cb) => cb.value);
     data.itemQty = {};
@@ -1122,7 +1149,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   try { const v = localStorage.getItem("lateDays"); if (v) $("lateDays").value = v; } catch {}
 
   let tTimer;
-  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tTimer); tTimer = setTimeout(() => (t.hidden = true), 2200); }
+  function toast(msg, ms) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tTimer); tTimer = setTimeout(() => (t.hidden = true), ms || 2200); }
 
   // ---------- export ----------
   $("exportBtn").onclick = async () => {

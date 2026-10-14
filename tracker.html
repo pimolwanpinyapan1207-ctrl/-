@@ -299,6 +299,10 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
 .f.has-suggest { position: relative; }
+.checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
+.checks .item.wide label { flex: 1 1 8em; }
+.checks .ret { flex: none; width: auto; font: inherit; font-size: .85rem; padding: 3px 8px; border-radius: 99px; border: 1.5px solid var(--c-line); background: #ffffff; color: var(--c-ink); cursor: pointer; }
+.checks .ret:disabled { opacity: .4; background: transparent; color: inherit; border-style: dashed; cursor: default; }
 .suggest-wrap { position: relative; display: block; flex: 1 1 240px; min-width: 0; }
 .suggest-wrap > input { width: 100%; }
 .suggest { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; margin: 4px 0 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto;
@@ -492,8 +496,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     { name: CMP_DOCS_NONE, label: "ไม่มี", x: "cmpdoc", solo: true },
     // the contract sits on its own after the competitor groups so it does not read as one of them
     { head: "สัญญา" },
-    { name: "สัญญาซื้อขาย", label: "สัญญาซื้อขาย" },
-    { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ" },   // \n = second line inside the box
+    // ret: also record how many signed sets the customer sent back
+    { name: "สัญญาซื้อขาย", label: "สัญญาซื้อขาย", ret: true },
+    { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ", ret: true },   // \n = second line inside the box
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
@@ -931,10 +936,19 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     });
     if (FLAGS.has(name)) { n.type = "hidden"; box.append(l, n); }
     else box.append(l, n, el("span", "unit", unitOf(name)));
+    if (f.ret) {
+      const rs = document.createElement("select"); rs.id = "ret" + i; rs.className = "ret"; rs.disabled = true;
+      rs.setAttribute("aria-label", "ส่งกลับกี่ชุด " + name);
+      rs.append(new Option("ส่งกลับ –", ""));
+      for (let k = 1; k <= 10; k++) rs.append(new Option("ส่งกลับ " + k + " ชุด", String(k)));
+      cb.addEventListener("change", () => { rs.disabled = !cb.checked; if (!cb.checked) rs.value = ""; });
+      box.classList.add("wide"); box.append(rs);
+    }
     $("itemChecks").append(box);
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
-  const itemLabel = (r, i) => (FLAGS.has(i) ? i : qtyLabel(i, qtyOf(r, i)));
+  const retOf = (r, name) => (r && r.itemReturn && Number(r.itemReturn[name]) >= 1 ? Number(r.itemReturn[name]) : 0);
+  const itemLabel = (r, i) => (FLAGS.has(i) ? i : qtyLabel(i, qtyOf(r, i)) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
   const totalText = (r) => {
@@ -951,6 +965,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       cb.checked = !!(r && r.items && r.items.includes(cb.value));
       const n = $(cb.id.replace("item", "qty"));
       n.value = String(qtyOf(r, cb.value)); n.disabled = !cb.checked;
+      const rs = $(cb.id.replace("item", "ret"));
+      if (rs) { rs.value = retOf(r, cb.value) ? String(retOf(r, cb.value)) : ""; rs.disabled = !cb.checked; }
     });
     if (m === "ship" && !$("shippedDate").value) $("shippedDate").value = today();
     if (!$("method").value) $("method").value = "ไปรษณีย์ EMS";  // all sets go by EMS
@@ -1083,11 +1099,13 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     data.deliveredTime = before && before.deliveredDate === data.deliveredDate ? before.deliveredTime || "" : "";
     const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
     data.items = checked.map((cb) => cb.value);
-    data.itemQty = {};
+    data.itemQty = {}; data.itemReturn = {};
     for (const cb of checked) {
       const v = Number($(cb.id.replace("item", "qty")).value);
       if (!Number.isInteger(v) || v < 1) return showErr("จำนวนของ " + cb.value + " ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
       data.itemQty[cb.value] = v;
+      const rs = $(cb.id.replace("item", "ret"));
+      if (rs && rs.value) data.itemReturn[cb.value] = Number(rs.value);
     }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
     if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ ว/ด/ป ก่อนบันทึก");

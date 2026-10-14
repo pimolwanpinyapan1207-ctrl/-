@@ -476,7 +476,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO, CMP_DOCS_NONE]);
   const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name.startsWith(CMP_DOCS) ? "ชุด" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
-  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "สัญญาซื้อขาย", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
+  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
   const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);
   // form layout; x = exclusion group, solo = ticking it clears the others in its group (and vice versa)
   const FORM = [

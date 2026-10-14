@@ -137,16 +137,24 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 /* in-page date picker */
 .dp { position: relative; display: block; }
 .datebar .dp { display: inline-block; }
-.dp-btn { width: 100%; text-align: left; cursor: pointer; padding: 9px 36px 9px 12px; border-radius: 10px; font: inherit; line-height: inherit; color: var(--ink);
+.f span.dp { font-size: 1em; color: var(--ink); }  /* .f span styles the field captions; the picker must not inherit them */
+.dp-input { width: 100%; padding: 9px 44px 9px 12px; border-radius: 10px; font: inherit; line-height: normal; color: var(--ink); font-variant-numeric: tabular-nums;
   border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted));
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, var(--surface)) 0%, var(--surface) 100%);
-  box-shadow: inset 0 1px 3px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .8); position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dp-btn::after { content: ""; position: absolute; right: 12px; top: 50%; width: 14px; height: 14px; transform: translateY(-50%); border: 1.5px solid currentColor; border-top-width: 4px; border-radius: 3px; opacity: .65; }
-.dp-btn.empty { color: var(--muted); }
-.dp-btn:hover { border-color: var(--muted); }
-.dp-btn:focus-visible, .dp-btn[aria-expanded="true"] { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
-.datebar .dp-btn { width: auto; padding-block: 6px; }
-.dp-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 280px; max-width: calc(100vw - 48px); background: var(--surface); border: 1px solid var(--line);
+  box-shadow: inset 0 1px 3px rgba(25, 20, 45, .10), 0 1px 0 rgba(255, 255, 255, .8); transition: border-color .15s ease, box-shadow .15s ease; }
+.dp-input::placeholder { color: var(--muted); }
+.dp-input:hover { border-color: var(--muted); }
+.dp-input:focus { outline: none; border-color: var(--accent); box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.dp-input[aria-invalid="true"] { border-color: var(--late); box-shadow: 0 0 0 3px color-mix(in srgb, var(--late) 20%, transparent); }
+.dp-icon { position: absolute; top: 5px; right: 5px; width: 34px; height: 33px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+.dp-icon::before { content: ""; width: 14px; height: 13px; border: 1.5px solid currentColor; border-top-width: 4px; border-radius: 3px; }
+.dp-icon:hover, .dp-icon[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
+.dp-read { display: block; min-height: 1.2em; margin-top: 3px; font-size: .8rem; color: var(--accent); }
+.dp-read.bad { color: var(--late); font-weight: 500; }
+.datebar .dp-input { width: 11em; padding-block: 6px; }
+.datebar .dp-icon { top: 2px; height: 31px; }
+.datebar .dp-read { display: none; }
+.dp-pop { position: absolute; z-index: 30; top: 48px; left: 0; width: 280px; max-width: calc(100vw - 48px); background: var(--surface); border: 1px solid var(--line);
   border-radius: 14px; padding: 12px; display: grid; gap: 8px; box-shadow: 0 2px 6px rgba(25, 20, 45, .08), 0 16px 32px -12px rgba(25, 20, 45, .35); }
 .dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .dp-title { font-family: var(--display); font-weight: 600; }
@@ -469,23 +477,43 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   // composedPath, not contains(): month arrows redraw the calendar, detaching the clicked button before this runs
   document.addEventListener("click", (e) => { const path = e.composedPath(); openPops.forEach((p) => { if (!path.includes(p.wrap)) p.close(); }); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") openPops.forEach((p) => p.close()); });
+  // typed dates: วว/ดด/ปปปป, year in พ.ศ. (2569) or ค.ศ. (2026), 2-digit years read as พ.ศ. (69 → 2569); "14102569" also works
+  const parseTyped = (s) => {
+    const t = s.trim();
+    const m = t.match(/^(\d{1,2})\s*[\/\-. ]\s*(\d{1,2})\s*[\/\-. ]\s*(\d{2}|\d{4})$/) || t.match(/^(\d{2})(\d{2})(\d{4})$/);
+    if (!m) return null;
+    const d = +m[1], mo = +m[2];
+    let y = +m[3];
+    if (y < 100) y += 2500;
+    if (y > 2400) y -= 543;
+    const dt = new Date(y, mo - 1, d);
+    return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? iso(y, mo - 1, d) : null;
+  };
+  const typedOf = (v) => { if (!v) return ""; const [y, m, d] = v.split("-"); return d + "/" + m + "/" + (+y + 543); };
   document.querySelectorAll("input[type=date]").forEach((inp) => {
     inp.type = "hidden";
     const wrap = document.createElement("span"); wrap.className = "dp";
-    const btn = document.createElement("button"); btn.type = "button"; btn.className = "dp-btn";
+    const txt = document.createElement("input"); txt.type = "text"; txt.className = "dp-input"; txt.inputMode = "numeric";
+    txt.placeholder = "วว/ดด/ปปปป"; txt.autocomplete = "off"; txt.setAttribute("aria-label", "วันที่ (พิมพ์ วว/ดด/ปปปป หรือกดเลือกจากปฏิทิน)");
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "dp-icon"; btn.setAttribute("aria-label", "เปิดปฏิทิน");
+    const read = el("span", "dp-read");
     const pop = document.createElement("div"); pop.className = "dp-pop"; pop.hidden = true;
     pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "เลือกวันที่");
-    inp.after(wrap); wrap.append(btn, pop);
-    // the picker sits inside a <label>: keep clicks inside it from re-triggering the label
+    inp.after(wrap); wrap.append(txt, btn, read, pop);
+    // the picker sits inside a <label>: keep clicks on its buttons from re-triggering the label
     pop.addEventListener("click", (e) => e.preventDefault());
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
     let view = new Date();
-    const paint = () => {
+    const paint = (keepText) => {
       const v = valueProp.get.call(inp);
-      btn.textContent = v ? parse(v).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "long", year: "numeric" }) : "เลือกวันที่";
-      btn.classList.toggle("empty", !v);
+      if (!keepText) txt.value = typedOf(v);
+      read.textContent = v ? parse(v).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "";
+      txt.removeAttribute("aria-invalid"); read.classList.remove("bad");
     };
-    Object.defineProperty(inp, "value", { get: () => valueProp.get.call(inp), set: (v) => { valueProp.set.call(inp, v); paint(); } });
-    const choose = (v) => { inp.value = v; close(); inp.dispatchEvent(new Event("change", { bubbles: true })); btn.focus(); };
+    const setValue = (v, keepText) => { valueProp.set.call(inp, v); paint(keepText); };
+    Object.defineProperty(inp, "value", { get: () => valueProp.get.call(inp), set: (v) => setValue(v) });
+    const commit = (v, keepText) => { const changed = v !== inp.value; setValue(v, keepText); if (changed) inp.dispatchEvent(new Event("change", { bubbles: true })); };
+    const choose = (v) => { commit(v); close(); txt.focus(); };
     const draw = () => {
       const y = view.getFullYear(), m = view.getMonth(), cur = inp.value, now = today();
       pop.replaceChildren();
@@ -512,13 +540,31 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     };
     const close = () => { pop.hidden = true; openPops.delete(api); btn.setAttribute("aria-expanded", "false"); };
     const api = { wrap, close };
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (!pop.hidden) return close();
+    const open = () => {
+      if (!pop.hidden) return;
       openPops.forEach((p) => p.close());
       const base = inp.value ? parse(inp.value) : new Date();
       view = new Date(base.getFullYear(), base.getMonth(), 1);
       draw(); pop.hidden = false; openPops.add(api); btn.setAttribute("aria-expanded", "true");
+    };
+    btn.addEventListener("click", (e) => { e.preventDefault(); if (pop.hidden) { open(); txt.focus(); } else close(); });
+    txt.addEventListener("click", open);
+    // typing: add the slashes as digits go in, follow a complete date in the calendar, check it when leaving the field
+    txt.addEventListener("input", (e) => {
+      if (e.inputType === "insertText" && /^\d{2}$|^\d{1,2}\/\d{2}$/.test(txt.value)) txt.value += "/";
+      const v = parseTyped(txt.value);
+      if (v) { commit(v, true); if (!pop.hidden) { view = new Date(parse(v).getFullYear(), parse(v).getMonth(), 1); draw(); } }
+    });
+    const check = () => {
+      if (!txt.value.trim()) { commit(""); return; }
+      const v = parseTyped(txt.value);
+      if (v) commit(v);
+      else { txt.setAttribute("aria-invalid", "true"); read.textContent = "วันที่ไม่ถูกต้อง พิมพ์แบบ วว/ดด/ปปปป เช่น 14/10/2569"; read.classList.add("bad"); }
+    };
+    txt.addEventListener("blur", check);
+    txt.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); check(); close(); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); open(); }
     });
     paint();
   });
@@ -854,6 +900,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       data.itemQty[cb.value] = v;
     }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
+    if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ วว/ดด/ปปปป ก่อนบันทึก");
     // only the full form shows the number field; quick ship/receive saves must not be blocked by an old-format number
     const docProblem = mode === "full" ? checkDocNo() : "";
     if (docProblem) { $("docNo").focus(); return showErr(docProblem); }

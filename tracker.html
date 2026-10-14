@@ -377,7 +377,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       <div class="grid2">
         <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
-        <label class="f"><span>ยอดเงิน (บาท)</span><input id="amount" inputmode="decimal" autocomplete="off"></label>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
       </div>
       <datalist id="custList"></datalist>
@@ -694,7 +693,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       meta.append(ch);
     }
     const subs = [];
-    if (r.amount) subs.push("ยอด " + Number(r.amount).toLocaleString("th-TH", { minimumFractionDigits: 2 }) + " บาท");
     if (r.note) subs.push(r.note);
     if (subs.length) meta.append(el("div", "sub", subs.join(" · ")));
 
@@ -784,7 +782,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     (r.items || []).filter((i) => !FLAGS.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
-  const FIELDS = ["docNo", "customer", "amount", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
+  const FIELDS = ["docNo", "customer", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
 
   function openForm(r, m) {
     editingId = r ? r.id : null; mode = m; delArmed = false;
@@ -855,8 +853,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     // only the full form shows the number field; quick ship/receive saves must not be blocked by an old-format number
     const docProblem = mode === "full" ? checkDocNo() : "";
     if (docProblem) { $("docNo").focus(); return showErr(docProblem); }
-    if (data.amount && isNaN(Number(data.amount.replace(/,/g, "")))) return showErr("ยอดเงินต้องเป็นตัวเลข");
-    data.amount = data.amount ? String(Number(data.amount.replace(/,/g, ""))) : "";
     if (data.deliveredDate && data.shippedDate && data.deliveredDate < data.shippedDate) return showErr("วันที่ถึงลูกค้าต้องไม่ก่อนวันที่ส่งออก");
     if (mode === "recv" && !data.receiver) return showErr("กรุณาระบุชื่อผู้รับเอกสาร");
     if (data.deliveredDate && !data.shippedDate) data.shippedDate = data.deliveredDate;
@@ -918,9 +914,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
 
   // ---------- export ----------
   $("exportBtn").onclick = async () => {
-    const head = ["เลขที่เอกสาร", "ลูกค้า", "เอกสารในชุด", "ยอดเงิน", "วันที่เตรียม", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
+    const head = ["เลขที่เอกสาร", "ลูกค้า", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, itemText(r).join(" / "), r.amount, r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
+    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
     const csv = "﻿" + lines.join("\r\n");
     try {
       const filename = "ชุดเบิก-" + today() + ".csv";

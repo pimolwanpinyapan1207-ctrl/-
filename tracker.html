@@ -327,6 +327,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   display: grid; gap: 14px; box-shadow: 0 1px 2px rgba(25, 20, 45, .05), 0 16px 36px -18px rgba(25, 20, 45, .35); }
 .login h2 { font-size: 1.2rem; }
 .login p { margin: 0; color: var(--muted); font-size: .9rem; }
+.pw-sheet { width: min(420px, 100%); }
 .userbar { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); flex-wrap: wrap; }
 </style>
 
@@ -345,6 +346,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
 
   <div class="userbar" id="userbar" hidden>
     <span id="userEmail"></span>
+    <button class="btn small" type="button" id="pwBtn">เปลี่ยนรหัสผ่าน</button>
     <button class="btn small" type="button" id="signOutBtn">ออกจากระบบ</button>
   </div>
 
@@ -463,6 +465,20 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
         <button class="btn primary" type="submit" id="saveBtn">บันทึก</button>
       </div>
     </div>
+  </form>
+</div>
+
+<div class="overlay" id="pwOverlay" hidden>
+  <form class="sheet pw-sheet" id="pwForm" novalidate>
+    <h2>เปลี่ยนรหัสผ่าน</h2>
+    <label class="f"><span>รหัสผ่านปัจจุบัน</span><input id="pwOld" type="password" autocomplete="current-password"></label>
+    <label class="f"><span>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</span><input id="pwNew" type="password" autocomplete="new-password"></label>
+    <label class="f"><span>พิมพ์รหัสผ่านใหม่อีกครั้ง</span><input id="pwNew2" type="password" autocomplete="new-password"></label>
+    <div class="err" id="pwErr" hidden></div>
+    <div class="foot"><div class="right">
+      <button class="btn" type="button" id="pwCancel">ยกเลิก</button>
+      <button class="btn primary" type="submit" id="pwSave">บันทึกรหัสผ่านใหม่</button>
+    </div></div>
   </form>
 </div>
 
@@ -1276,6 +1292,32 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     else $("loginPass").value = "";
   });
   $("signOutBtn").onclick = () => sb && sb.auth.signOut();
+
+  // change password: check the current one first, then set the new one on the Supabase account
+  const pwErr = (m) => { $("pwErr").textContent = m; $("pwErr").hidden = false; };
+  const pwClose = () => { $("pwOverlay").hidden = true; ["pwOld", "pwNew", "pwNew2"].forEach((id) => ($(id).value = "")); };
+  $("pwBtn").onclick = () => { $("pwErr").hidden = true; $("pwOverlay").hidden = false; setTimeout(() => $("pwOld").focus(), 30); };
+  $("pwCancel").onclick = pwClose;
+  $("pwOverlay").addEventListener("click", (e) => { if (e.target === $("pwOverlay")) pwClose(); });
+  $("pwForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const oldPw = $("pwOld").value, pw = $("pwNew").value, pw2 = $("pwNew2").value;
+    if (!oldPw || !pw) return pwErr("กรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่");
+    if (pw.length < 8) return pwErr("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัว");
+    if (pw !== pw2) return pwErr("รหัสผ่านใหม่ทั้ง 2 ช่องไม่ตรงกัน");
+    if (pw === oldPw) return pwErr("รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม");
+    $("pwSave").disabled = true; $("pwErr").hidden = true;
+    try {
+      const { data } = await sb.auth.getSession();
+      const email = data.session && data.session.user.email;
+      const check = await sb.auth.signInWithPassword({ email, password: oldPw });
+      if (check.error) return pwErr("รหัสผ่านปัจจุบันไม่ถูกต้อง");
+      const { error } = await sb.auth.updateUser({ password: pw });
+      if (error) return pwErr(error.code === "weak_password" ? "รหัสผ่านใหม่ง่ายเกินไป ลองใช้ตัวอักษรผสมตัวเลข" : "เปลี่ยนรหัสผ่านไม่สำเร็จ: " + error.message);
+      pwClose(); toast("เปลี่ยนรหัสผ่านแล้ว ครั้งหน้าเข้าสู่ระบบด้วยรหัสใหม่", 5000);
+    } catch { pwErr("เปลี่ยนรหัสผ่านไม่สำเร็จ ลองใหม่อีกครั้ง"); }
+    finally { $("pwSave").disabled = false; }
+  });
 
   async function start() {
     db = window.claude && claude.use ? await claude.use("db") : null;

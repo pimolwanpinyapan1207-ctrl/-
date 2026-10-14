@@ -301,6 +301,11 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
+.checks .suggest-wrap { flex: 1 1 100%; }
+.checks .item:focus-within { position: relative; z-index: 5; }   /* keep a box's suggestion list above the boxes below it */
+.checks .place { width: 100%; font: inherit; font-size: .9rem; padding: 6px 10px; border-radius: 8px; border: 1.5px solid var(--c-line); background: #ffffff; color: var(--c-ink); }
+.checks .place:disabled { opacity: .4; background: transparent; border-style: dashed; }
+.checks .place::placeholder { color: var(--muted); }
 .checks .ret { flex: none; width: auto; font: inherit; font-size: .85rem; padding: 3px 8px; border-radius: 99px; border: 1.5px solid var(--c-line); background: #ffffff; color: var(--c-ink); cursor: pointer; }
 .checks .ret:disabled { opacity: .4; background: transparent; color: inherit; border-style: dashed; cursor: default; }
 .suggest-wrap { position: relative; display: block; flex: 1 1 240px; min-width: 0; }
@@ -943,12 +948,18 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       for (let k = 1; k <= 10; k++) rs.append(new Option("ส่งกลับ " + k + " ชุด", String(k)));
       cb.addEventListener("change", () => { rs.disabled = !cb.checked; if (!cb.checked) rs.value = ""; });
       box.classList.add("wide"); box.append(rs);
+      // which สกร. (province / district) the contract is with — same nationwide suggestions as the customer field
+      const pl = document.createElement("input"); pl.type = "text"; pl.id = "place" + i; pl.className = "place"; pl.autocomplete = "off";
+      pl.placeholder = "จังหวัด / อำเภอ"; pl.disabled = true; pl.setAttribute("aria-label", "จังหวัดหรืออำเภอของ " + name);
+      box.append(pl); placeSuggest(pl, "place" + i);
+      cb.addEventListener("change", () => { pl.disabled = !cb.checked; if (!cb.checked) pl.value = ""; });
     }
     $("itemChecks").append(box);
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
   const retOf = (r, name) => (r && r.itemReturn && Number(r.itemReturn[name]) >= 1 ? Number(r.itemReturn[name]) : 0);
-  const itemLabel = (r, i) => (FLAGS.has(i) ? i : qtyLabel(i, qtyOf(r, i)) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
+  const placeOf = (r, name) => (r && r.itemPlace && r.itemPlace[name]) || "";
+  const itemLabel = (r, i) => (FLAGS.has(i) ? i : qtyLabel(i, qtyOf(r, i)) + (placeOf(r, i) ? " · " + placeOf(r, i) : "") + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
   const totalText = (r) => {
@@ -967,6 +978,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       n.value = String(qtyOf(r, cb.value)); n.disabled = !cb.checked;
       const rs = $(cb.id.replace("item", "ret"));
       if (rs) { rs.value = retOf(r, cb.value) ? String(retOf(r, cb.value)) : ""; rs.disabled = !cb.checked; }
+      const pl = $(cb.id.replace("item", "place"));
+      if (pl) { pl.value = placeOf(r, cb.value); pl.disabled = !cb.checked; }
     });
     if (m === "ship" && !$("shippedDate").value) $("shippedDate").value = today();
     if (!$("method").value) $("method").value = "ไปรษณีย์ EMS";  // all sets go by EMS
@@ -1007,6 +1020,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   // used by the customer field and by the history search box; afterPick runs once a suggestion is taken
   function placeSuggest(inp, key, afterPick) {
     let box = inp.closest(".f");
+    if (inp.classList.contains("place")) box = null;   // contract place fields sit inside the big items field: give them their own anchor
     if (!box) { box = el("span", "suggest-wrap"); inp.before(box); box.append(inp); }
     box.classList.add("has-suggest");
     inp.setAttribute("role", "combobox"); inp.setAttribute("aria-autocomplete", "list"); inp.setAttribute("aria-expanded", "false"); inp.setAttribute("aria-controls", key + "Suggest");
@@ -1099,13 +1113,15 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     data.deliveredTime = before && before.deliveredDate === data.deliveredDate ? before.deliveredTime || "" : "";
     const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
     data.items = checked.map((cb) => cb.value);
-    data.itemQty = {}; data.itemReturn = {};
+    data.itemQty = {}; data.itemReturn = {}; data.itemPlace = {};
     for (const cb of checked) {
       const v = Number($(cb.id.replace("item", "qty")).value);
       if (!Number.isInteger(v) || v < 1) return showErr("จำนวนของ " + cb.value + " ต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป");
       data.itemQty[cb.value] = v;
       const rs = $(cb.id.replace("item", "ret"));
       if (rs && rs.value) data.itemReturn[cb.value] = Number(rs.value);
+      const pl = $(cb.id.replace("item", "place"));
+      if (pl && pl.value.trim()) data.itemPlace[cb.value] = pl.value.trim();
     }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
     if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ ว/ด/ป ก่อนบันทึก");

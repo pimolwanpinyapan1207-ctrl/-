@@ -493,7 +493,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     // the contract sits on its own after the competitor groups so it does not read as one of them
     { head: "สัญญา" },
     { name: "สัญญาซื้อขาย", label: "สัญญาซื้อขาย" },
-    { name: "สัญญาจ้างทำของ", label: "สัญญาจ้างทำของ" },
+    { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ" },   // \n = second line inside the box
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
@@ -916,7 +916,10 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     const box = el("div", "item" + (f.x ? " sub" : "") + (name === NONE ? " none" : "") + (f.x === "stamp" ? " stamp" : "") + (f.x === "cmp" ? " cmp" : f.x === "cmpdoc" ? " cdoc" : "")); const l = el("label"); const cb = document.createElement("input");
     cb.type = "checkbox"; cb.value = name; cb.id = "item" + i;
     if (f.x) { cb.dataset.x = f.x; if (f.solo) cb.dataset.solo = "1"; }
-    l.append(cb, document.createTextNode(f.label));
+    // a "\n" in a label puts the rest on a second line inside the box
+    const txt = el("span", "item-name");
+    f.label.split("\n").forEach((part, k) => { if (k) txt.append(document.createElement("br")); txt.append(part); });
+    l.append(cb, txt);
     const n = document.createElement("input");
     n.type = "number"; n.min = "1"; n.step = "1"; n.value = "1"; n.id = "qty" + i; n.className = "qty";
     n.inputMode = "numeric"; n.disabled = true; n.setAttribute("aria-label", "จำนวน " + name);

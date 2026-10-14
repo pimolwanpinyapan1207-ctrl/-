@@ -299,6 +299,8 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .err { color: var(--late); font-size: .85rem; }
 .hint { font-size: .8rem; color: var(--muted); }
 .f.has-suggest { position: relative; }
+.suggest-wrap { position: relative; display: block; flex: 1 1 240px; min-width: 0; }
+.suggest-wrap > input { width: 100%; }
 .suggest { position: absolute; z-index: 30; top: 100%; left: 0; right: 0; margin: 4px 0 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 2px 6px rgba(25, 20, 45, .08), 0 16px 32px -12px rgba(25, 20, 45, .35); }
 .suggest li { padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: .95rem; color: var(--ink); }
@@ -955,10 +957,13 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       return { name: n, text: (khet ? "สกร.เขต" : "สกร.ระดับอำเภอ") + n, sub: (khet ? "เขต · " : "อำเภอ · ") + p, full: (khet ? "เขต" : "อำเภอ") + n + " " + p, prov: p, kind: 1 };
     }),
   ];
-  (function customerSuggest() {
-    const inp = $("customer"), box = inp.closest(".f");
+  // used by the customer field and by the history search box; afterPick runs once a suggestion is taken
+  function placeSuggest(inp, key, afterPick) {
+    let box = inp.closest(".f");
+    if (!box) { box = el("span", "suggest-wrap"); inp.before(box); box.append(inp); }
     box.classList.add("has-suggest");
-    const list = el("ul", "suggest"); list.id = "custSuggest"; list.setAttribute("role", "listbox"); list.hidden = true;
+    inp.setAttribute("role", "combobox"); inp.setAttribute("aria-autocomplete", "list"); inp.setAttribute("aria-expanded", "false"); inp.setAttribute("aria-controls", key + "Suggest");
+    const list = el("ul", "suggest"); list.id = key + "Suggest"; list.setAttribute("role", "listbox"); list.hidden = true;
     box.append(list);
     list.addEventListener("mousedown", (e) => e.preventDefault());   // keep focus in the field
     list.addEventListener("click", (e) => e.preventDefault());       // don't re-trigger the surrounding <label>
@@ -967,14 +972,14 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
     // "จ.อำนาจ", "อำเภอเมือง", "เขตบาง" → search the bare name too
     const bare = (s) => s.replace(/^สกร\.?\s*(ประจำ|ระดับ)?\s*/, "").replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|เขต|ข\.)/, "");
     const close = () => { list.hidden = true; active = -1; inp.setAttribute("aria-expanded", "false"); inp.removeAttribute("aria-activedescendant"); };
-    const pick = (value) => { inp.value = value; close(); };
+    const pick = (value) => { inp.value = value; close(); if (afterPick) afterPick(value); };
     const marked = (text, q) => {
       const span = el("span", "s-main"); const i = q ? text.indexOf(q) : -1;
       if (i < 0) span.textContent = text; else span.append(text.slice(0, i), el("mark", null, text.slice(i, i + q.length)), text.slice(i + q.length));
       return span;
     };
     const addOpt = (text, sub, value, q) => {
-      const li = el("li"); li.id = "custOpt" + opts.length; li.setAttribute("role", "option");
+      const li = el("li"); li.id = key + "Opt" + opts.length; li.setAttribute("role", "option");
       li.append(marked(text, q)); if (sub) li.append(el("span", "s-sub", sub));
       li.addEventListener("click", () => pick(value));
       list.append(li); opts.push({ li, value });
@@ -987,7 +992,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
         .slice(0, 12);
       places.forEach((p) => addOpt(p.text, p.sub, p.text, bare(q) || q));
       if (!opts.length) {
-        if (!nq) return close();
+        if (!nq || key !== "cust") return close();   // the "new customer" hint only makes sense in the form
         list.append(el("li", "suggest-empty", "ไม่พบชื่อนี้ บันทึกเป็นลูกค้าใหม่ได้เลย"));
       }
       list.hidden = false; inp.setAttribute("aria-expanded", "true");
@@ -1011,7 +1016,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       else if (e.key === "Enter" && !list.hidden) { e.preventDefault(); if (active >= 0) pick(opts[active].value); else close(); }
       else if (e.key === "Escape" && !list.hidden) { e.stopPropagation(); close(); }
     });
-  })();
+  }
+  placeSuggest($("customer"), "cust");
+  placeSuggest($("histQ"), "hist", () => renderHistory());
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 

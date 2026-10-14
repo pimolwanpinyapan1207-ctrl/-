@@ -133,6 +133,13 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .report { display: grid; gap: 16px; }
 .rep-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .datebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* date boxes show day/month/year whatever the browser language; the native field stays for the picker */
+.dwrap { position: relative; display: block; }
+.datebar .dwrap { display: inline-block; }
+.dwrap input[type=date] { color: transparent; cursor: pointer; }
+.dwrap input[type=date]::-webkit-datetime-edit { opacity: 0; }
+.dwrap .dshow { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; font-variant-numeric: tabular-nums; }
+.dwrap .dshow.empty { color: var(--muted); }
 .datebar input { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .rep-title { font-size: 1.25rem; font-weight: 600; }
 .rep-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -426,6 +433,36 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
   const parse = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
   const thDate = (s) => s ? parse(s).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" }) : "";
+  // Native date inputs order their fields by browser language (mm/dd/yyyy in English);
+  // overlay a dd/mm/yyyy label and open the picker on click. .value stays ISO for the rest of the code.
+  const valueProp = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  document.querySelectorAll("input[type=date]").forEach((el) => {
+    const wrap = document.createElement("span");
+    wrap.className = "dwrap";
+    el.parentNode.insertBefore(wrap, el);
+    wrap.appendChild(el);
+    const show = document.createElement("span");
+    show.className = "dshow";
+    show.setAttribute("aria-hidden", "true");
+    wrap.appendChild(show);
+    const paint = () => {
+      const v = valueProp.get.call(el);
+      show.textContent = v ? v.split("-").reverse().join("/") : "วว/ดด/ปปปป";
+      show.classList.toggle("empty", !v);
+    };
+    Object.defineProperty(el, "value", { get: () => valueProp.get.call(el), set: (v) => { valueProp.set.call(el, v); paint(); } });
+    el.addEventListener("input", paint);
+    el.addEventListener("change", paint);
+    const pick = () => { try { el.showPicker(); } catch (e) {} };
+    el.addEventListener("click", (e) => { e.preventDefault(); pick(); });
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") return;
+      e.preventDefault();
+      if (e.key === "Backspace" || e.key === "Delete") { el.value = ""; el.dispatchEvent(new Event("change", { bubbles: true })); }
+      else if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") pick();
+    });
+    paint();
+  });
   const daysSince = (s) => Math.round((parse(today()) - parse(s)) / 86400000);
   const lateDays = () => Number($("lateDays").value);
 
@@ -882,7 +919,14 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     $("loginBtn").disabled = true; $("loginErr").hidden = true;
     const { error } = await sb.auth.signInWithPassword({ email, password });
     $("loginBtn").disabled = false;
-    if (error) { $("loginErr").textContent = "อีเมลหรือรหัสผ่านไม่ถูกต้อง"; $("loginErr").hidden = false; }
+    if (error) {
+      const why = {
+        invalid_credentials: "อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือยังไม่มีบัญชีนี้ใน Supabase (Authentication → Users)",
+        email_not_confirmed: "บัญชีนี้ยังไม่ได้ยืนยันอีเมล ให้ผู้ดูแลกด Confirm user ใน Supabase หรือเปิดลิงก์ยืนยันในอีเมล",
+        user_banned: "บัญชีนี้ถูกระงับการใช้งาน",
+      }[error.code] || (error.status === 401 ? "คีย์ของหน้าเว็บใช้ไม่ได้แล้ว แจ้งผู้ดูแลให้อัปเดตคีย์" : "เข้าสู่ระบบไม่สำเร็จ: " + error.message);
+      $("loginErr").textContent = why; $("loginErr").hidden = false;
+    }
     else $("loginPass").value = "";
   });
   $("signOutBtn").onclick = () => sb && sb.auth.signOut();

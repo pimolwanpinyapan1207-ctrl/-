@@ -196,6 +196,13 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .parcel-list li { display: list-item; }
 .parcel-list .who { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-right: 12px; min-width: 12em; }
 
+.history { display: grid; gap: 12px; }
+.hist-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.hist-head input[type=search] { flex: 1 1 240px; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.hist-month { font-family: var(--display); font-weight: 600; font-size: 1.05rem; min-width: 9em; text-align: center; }
+#histAll[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.hist-sum { margin: 0; color: var(--muted); font-size: .9rem; }
+.hist-day { font-size: .9rem; font-weight: 600; color: var(--muted); margin: 6px 0 -2px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
 .rep-text { width: 100%; min-height: 200px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-family: var(--mono); font-size: .85rem; }
 
 .empty-state { text-align: center; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; gap: 10px; justify-items: center; }
@@ -309,7 +316,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: .9rem; z-index: 20; }
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
 /* sign-in (Supabase mode, outside claude.ai) */
-body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .actions { display: none !important; }
+body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #historyView, body.locked .actions { display: none !important; }
 .login { max-width: 420px; width: 100%; margin: 24px auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px;
   display: grid; gap: 14px; box-shadow: 0 1px 2px rgba(25, 20, 45, .05), 0 16px 36px -18px rgba(25, 20, 45, .35); }
 .login h2 { font-size: 1.2rem; }
@@ -347,6 +354,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   <nav class="tabs" role="tablist">
     <button type="button" class="tab" role="tab" id="tab-list" aria-selected="true">รายการชุดเบิก</button>
     <button type="button" class="tab" role="tab" id="tab-report" aria-selected="false">รายงานประจำวัน</button>
+    <button type="button" class="tab" role="tab" id="tab-history" aria-selected="false">ประวัติย้อนหลัง</button>
   </nav>
 
   <section class="report" id="reportView" hidden>
@@ -365,9 +373,24 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     <textarea id="repText" class="rep-text" readonly hidden aria-label="ข้อความรายงาน"></textarea>
   </section>
 
+  <section class="history" id="historyView" hidden>
+    <div class="hist-head">
+      <div class="datebar">
+        <button class="btn small" type="button" id="histPrev" aria-label="เดือนก่อน">‹</button>
+        <span class="hist-month" id="histLabel"></span>
+        <button class="btn small" type="button" id="histNext" aria-label="เดือนถัดไป">›</button>
+        <button class="btn small" type="button" id="histNow">เดือนนี้</button>
+        <button class="btn small" type="button" id="histAll" aria-pressed="false">ทุกเดือน</button>
+      </div>
+      <input type="search" id="histQ" placeholder="ค้นหาเลขที่ ลูกค้า บริษัท เลขพัสดุ หรือผู้รับ">
+    </div>
+    <p class="hist-sum" id="histSum"></p>
+    <div class="list" id="histList"></div>
+  </section>
+
   <div id="listView" class="listview">
   <div class="strip" id="strip">
-    <button class="stat all" type="button" data-f="all" aria-pressed="true"><span class="n" id="c-all">0</span><span class="l">ทั้งหมด</span></button>
+    <button class="stat all" type="button" data-f="all" aria-pressed="false" title="ดูทั้งหมดในประวัติย้อนหลัง"><span class="n" id="c-all">0</span><span class="l">ทั้งหมด</span></button>
     <button class="stat wait" type="button" data-f="wait" aria-pressed="false"><span class="n" id="c-wait">0</span><span class="l">ยังไม่ส่งออก</span></button>
     <button class="stat move" type="button" data-f="move" aria-pressed="false"><span class="n" id="c-move">0</span><span class="l">ส่งแล้ว รอลูกค้ารับ</span></button>
     <button class="stat late" type="button" data-f="late" aria-pressed="false"><span class="n" id="c-late">0</span><span class="l">ส่งเกินกำหนด ยังไม่ถึง</span></button>
@@ -469,7 +492,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
   let rows = [];          // [{id, ...data}]
-  let filter = "all";
+  let filter = "none";   // front page shows no cards until a status tile is picked or something is searched
   let editingId = null, mode = "full", delArmed = false;
 
   // ---------- dates ----------
@@ -706,8 +729,48 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     return L.join("\n");
   }
 
+  // ---------- history: every set, month by month (by its date), newest first ----------
+  let histMonth = today().slice(0, 7), histAll = false;
+  const monthLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return TH_MONTHS[m - 1] + " " + (y + 543); };
+  const shiftMonth = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+  function renderHistory() {
+    if ($("historyView").hidden) return;
+    $("histLabel").textContent = histAll ? "ทุกเดือน" : monthLabel(histMonth);
+    $("histAll").setAttribute("aria-pressed", String(histAll));
+    $("histPrev").disabled = $("histNext").disabled = histAll;
+    const q = $("histQ").value.trim().toLowerCase();
+    const shown = rows
+      .filter((r) => histAll || createdDay(r).slice(0, 7) === histMonth)
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
+      .sort((a, b) => createdDay(b).localeCompare(createdDay(a)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const n = { wait: 0, move: 0, late: 0, done: 0 };
+    shown.forEach((r) => n[statusOf(r)]++);
+    $("histSum").textContent = shown.length
+      ? shown.length + " ชุด · ส่งออกแล้ว " + (n.move + n.late + n.done) + " · ลูกค้าได้รับแล้ว " + n.done + " · ยังไม่ส่งออก " + n.wait
+      : "";
+    const list = $("histList"); list.replaceChildren();
+    if (!shown.length) {
+      const e = el("div", "empty-state");
+      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : "เดือนนี้")));
+      if (!histAll) e.append(el("div", null, "กด ‹ › เพื่อดูเดือนอื่น หรือกด “ทุกเดือน”"));
+      list.append(e); return;
+    }
+    let day = "";
+    for (const r of shown) {
+      const d = createdDay(r);
+      if (d !== day) { day = d; list.append(el("h3", "hist-day", d && d !== "0000-00-00" ? longDate(d) : "ไม่ระบุวันที่")); }
+      list.append(card(r));
+    }
+  }
+  $("histPrev").onclick = () => { histMonth = shiftMonth(histMonth, -1); renderHistory(); };
+  $("histNext").onclick = () => { histMonth = shiftMonth(histMonth, 1); renderHistory(); };
+  $("histNow").onclick = () => { histAll = false; histMonth = today().slice(0, 7); renderHistory(); };
+  $("histAll").onclick = () => { histAll = !histAll; renderHistory(); };
+  $("histQ").addEventListener("input", renderHistory);
+
   function render() {
     renderReport();
+    renderHistory();
     const counts = { all: rows.length, wait: 0, move: 0, late: 0, done: 0 };
     rows.forEach((r) => counts[statusOf(r)]++);
     for (const k in counts) $("c-" + k).textContent = counts[k];
@@ -715,7 +778,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
 
     const q = $("q").value.trim().toLowerCase();
     const shown = rows
-      .filter((r) => filter === "all" || statusOf(r) === filter)
+      .filter((r) => filter === "all" || filter === "none" || statusOf(r) === filter)
       .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
       .sort((a, b) => {
         const order = { late: 0, wait: 1, move: 2, done: 3 };
@@ -730,6 +793,11 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       e.append(el("h2", null, "ยังไม่มีชุดเบิกในระบบ"),
         el("div", null, "กด “+ เพิ่มชุดเบิก” เพื่อบันทึกเลขที่เอกสารและชื่อลูกค้า จากนั้นค่อยกดบันทึกวันส่งออก และวันที่ลูกค้าได้รับพร้อมชื่อผู้รับ"));
       if (canWrite) { const b = el("button", "btn primary", "+ เพิ่มชุดเบิกรายการแรก"); b.type = "button"; b.onclick = () => openForm(null, "full"); e.append(b); }
+      list.append(e); return;
+    }
+    if (filter === "none" && !q) {
+      const e = el("div", "empty-state");
+      e.append(el("h2", null, "เลือกสถานะด้านบนเพื่อดูรายการ"), el("div", null, "กดช่องสถานะ เช่น “ยังไม่ส่งออก” หรือพิมพ์ค้นหา ถ้าจะดูทั้งหมดย้อนหลังทีละเดือน ไปที่แท็บ “ประวัติย้อนหลัง”"));
       list.append(e); return;
     }
     if (!shown.length) { const e = el("div", "empty-state"); e.append(el("h2", null, "ไม่พบรายการที่ตรงกับตัวกรอง")); list.append(e); return; }
@@ -1013,18 +1081,23 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
   $("addBtn").onclick = () => openForm(null, "full");
 
   // ---------- filters ----------
-  $("strip").addEventListener("click", (e) => { const b = e.target.closest(".stat"); if (!b) return; filter = b.dataset.f; render(); });
+  $("strip").addEventListener("click", (e) => {
+    const b = e.target.closest(".stat"); if (!b) return;
+    if (b.dataset.f === "all") { histAll = true; showView("history"); return; }
+    filter = filter === b.dataset.f ? "none" : b.dataset.f; render();
+  });
   $("q").addEventListener("input", render);
 
   function showView(v) {
-    const rep = v === "report";
-    $("reportView").hidden = !rep; $("listView").hidden = rep;
-    $("tab-list").setAttribute("aria-selected", String(!rep)); $("tab-report").setAttribute("aria-selected", String(rep));
+    if (!["list", "report", "history"].includes(v)) v = "list";
+    $("reportView").hidden = v !== "report"; $("historyView").hidden = v !== "history"; $("listView").hidden = v !== "list";
+    ["list", "report", "history"].forEach((k) => $("tab-" + k).setAttribute("aria-selected", String(k === v)));
     try { localStorage.setItem("view", v); } catch {}
     render();
   }
   $("tab-list").onclick = () => showView("list");
   $("tab-report").onclick = () => showView("report");
+  $("tab-history").onclick = () => showView("history");
   const shiftDay = (n) => { const d = parse($("repDate").value || today()); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); $("repDate").value = d.toISOString().slice(0, 10); renderReport(); };
   $("prevDay").onclick = () => shiftDay(-1);
   $("nextDay").onclick = () => shiftDay(1);
@@ -1036,8 +1109,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     try { await navigator.clipboard.writeText(txt); toast("คัดลอกรายงานแล้ว วางใน LINE หรืออีเมลได้เลย"); }
     catch { const t = $("repText"); t.hidden = false; t.focus(); t.select(); toast("กด Ctrl+C เพื่อคัดลอกข้อความด้านล่าง"); }
   };
-  if (location.hash === "#report") showView("report");
-  else { try { if (localStorage.getItem("view") === "report") showView("report"); } catch {} }
+  if (location.hash === "#report" || location.hash === "#history") showView(location.hash.slice(1));
+  else { try { const v = localStorage.getItem("view"); if (v === "report" || v === "history") showView(v); } catch {} }
   $("lateDays").addEventListener("change", () => { try { localStorage.setItem("lateDays", $("lateDays").value); } catch {} render(); });
   try { const v = localStorage.getItem("lateDays"); if (v) $("lateDays").value = v; } catch {}
 

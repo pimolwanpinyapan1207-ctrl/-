@@ -1168,7 +1168,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
       closeForm();
       toast(mode === "ship" ? "บันทึกการส่งออกแล้ว" : mode === "recv" ? "บันทึกการรับเอกสารแล้ว" : "บันทึกแล้ว");
     } catch (err) {
-      showErr(err && err.code === "invalid_argument" ? "คุณไม่มีสิทธิ์แก้ไขข้อมูลในหน้านี้" : err && err.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าก่อนแล้วลองใหม่" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
+      showErr(err && err.code === "invalid_argument"
+        ? (sb ? "บันทึกไม่ได้ เพราะการเข้าสู่ระบบหมดอายุ ลองกด “ออกจากระบบ” แล้วเข้าสู่ระบบใหม่"
+              : "บันทึกไม่ได้ บัญชี claude.ai ของคุณมีสิทธิ์ดูหน้านี้อย่างเดียว ให้เจ้าของหน้าเปลี่ยนสิทธิ์ของคุณในเมนู Share เป็น “Contributor” (ใช้งานได้)") : err && err.code === "quota_exceeded" ? "พื้นที่เก็บข้อมูลเต็ม ลบรายการเก่าก่อนแล้วลองใหม่" : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
     } finally { $("saveBtn").disabled = false; }
   });
 

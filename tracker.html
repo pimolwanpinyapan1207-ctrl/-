@@ -181,7 +181,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .fieldset legend { font-family: var(--display); font-weight: 600; font-size: .8rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; padding: 0; margin-bottom: 6px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 520px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
-.f { display: grid; gap: 4px; min-width: 0; }
+.f { display: grid; gap: 4px; min-width: 0; align-content: start; }
 .f span { font-size: .82rem; color: var(--muted); }
 .f input, .f select, .f textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
 .f textarea { min-height: 60px; resize: vertical; }
@@ -359,7 +359,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
         <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" list="custList"></label>
         <label class="f"><span>ยอดเงิน (บาท)</span><input id="amount" inputmode="decimal" autocomplete="off"></label>
-        <label class="f"><span>วันที่เตรียมชุดเอกสาร</span><input id="preparedDate" type="date"></label>
       </div>
       <datalist id="custList"></datalist>
       <div class="f"><span>เอกสารในชุด</span>
@@ -730,7 +729,7 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     (r.items || []).filter((i) => !FLAGS.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
-  const FIELDS = ["docNo", "customer", "amount", "preparedDate", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
+  const FIELDS = ["docNo", "customer", "amount", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
 
   function openForm(r, m) {
     editingId = r ? r.id : null; mode = m; delArmed = false;
@@ -740,7 +739,6 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
       const n = $(cb.id.replace("item", "qty"));
       n.value = String(qtyOf(r, cb.value)); n.disabled = !cb.checked;
     });
-    if (!r) { $("preparedDate").value = today(); }
     if (m === "ship" && !$("shippedDate").value) $("shippedDate").value = today();
     if (!$("method").value) $("method").value = "ไปรษณีย์ EMS";  // all sets go by EMS
     if (m === "recv" && !$("deliveredDate").value) $("deliveredDate").value = today();
@@ -793,6 +791,9 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked .
     e.preventDefault();
     const data = {};
     FIELDS.forEach((f) => { data[f] = $(f).value.trim(); });
+    // no prepared-date field any more: a new set is "prepared" the day it is recorded, an existing one keeps its date
+    const before = editingId ? rows.find((x) => x.id === editingId) : null;
+    data.preparedDate = (before && before.preparedDate) || today();
     const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
     data.items = checked.map((cb) => cb.value);
     data.itemQty = {};

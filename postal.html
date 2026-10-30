@@ -608,11 +608,11 @@ function freshSlip() {
   const last = slips.slice().sort(byNewest)[0];
   const date = todayIso(), month = date.slice(0, 7);
   const sameMonth = slips.filter(s => (s.date || '').slice(0, 7) === month).sort(byNewest);
+  // a new form starts blank; only the date, the running number and ครั้งที่ are filled in
   return {
     id: null, date,
     book: last?.book || '', no: last ? nextNo(last.no) : '0001',
-    company: last?.company || '', unit: last?.unit || '', permit: last?.permit || '', office: last?.office || '',
-    sender: last?.sender || '',
+    company: '', unit: '', permit: '', office: '', sender: '',
     round: String(sameMonth.length + 1),
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},
@@ -799,10 +799,26 @@ $('btnNew').onclick = () => {
   fill();
   showView('form');
 };
-$('btnPrint').onclick = async () => { if (await save()) { showView('form'); window.print(); } };
+// after a save the page moves on to a blank form, ready for the next set
+function startFresh() {
+  slip = freshSlip(); dirty = false;
+  store(KEY_DRAFT, { slip, dirty });
+  fill();
+  showView('form');
+  $('companyInput').focus({ preventScroll: true });
+  toast('✓ บันทึกแล้ว · พร้อมกรอกใบใหม่');
+}
+let freshAfterPrint = false;
+$('btnPrint').onclick = async () => {
+  if (!(await save())) return;
+  showView('form');
+  freshAfterPrint = true;  // cleared once the print dialog closes, so the saved slip is what gets printed
+  window.print();
+};
+window.addEventListener('afterprint', () => { if (freshAfterPrint) { freshAfterPrint = false; startFresh(); } });
 // Ctrl+S saves without printing
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save().then(ok => { if (ok) startFresh(); }); }
 });
 
 // every saved slip, newest first, grouped by month with a subtotal; filter by text and month

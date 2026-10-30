@@ -491,12 +491,16 @@ sheet.addEventListener('input', e => {
   store(KEY_DRAFT, { slip, dirty });
   refresh();
 });
-// Enter moves down to the same column in the next row, like a spreadsheet
+// Enter moves to the next field in form order (like Tab), Shift+Enter goes back;
+// with a suggestion list open, its own handler picks first and then this moves on
 sheet.addEventListener('keydown', e => {
-  if (e.key !== 'Enter' || !e.target.dataset.k) return;
+  if (e.key !== 'Enter' || e.isComposing) return;
+  const fields = [...sheet.querySelectorAll('input, select')].filter(el => el.offsetParent !== null);
+  const at = fields.indexOf(e.target);
+  if (at < 0) return;
   e.preventDefault();
-  const next = sheet.querySelector(`[data-i="${+e.target.dataset.i + 1}"][data-k="${e.target.dataset.k}"]`);
-  (next || e.target).focus();
+  const next = fields[at + (e.shiftKey ? -1 : 1)];
+  if (next) { next.focus(); if (next.select && next.tagName === 'INPUT' && next.type !== 'date') next.select(); }
 });
 
 // ---------- actions ----------
@@ -709,7 +713,7 @@ sheet.querySelectorAll('[data-k="to"]').forEach(inp => {
   inp.addEventListener('keydown', e => {
     if (plList.hidden || plInput !== inp) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); movePlace(e.key === 'ArrowDown' ? 1 : -1); }
-    else if (e.key === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); pickPlace(plOpts[plActive]); }
+    else if (e.key === 'Enter' && !e.shiftKey) pickPlace(plOpts[plActive]);
     else if (e.key === 'Escape') closePlaces();
   });
 });

@@ -346,13 +346,13 @@ table.f.carry { border-top: 0; }
           <colgroup><col style="width:22%"><col style="width:36%"><col style="width:21%"><col style="width:21%"></colgroup>
           <thead><tr><th>ประเภท<br>บริการ</th><th>ในประเทศ (ยอดรวม)</th><th>ต่างประเทศ<br>(ยอดรวม)</th><th>รวมเงิน<br>(1+2)</th></tr></thead>
           <tbody id="sumRows"></tbody>
-          <tfoot><tr><td class="b">ยอดรวม</td><td class="num b" id="sumDom"></td><td class="num b" id="sumIntl"></td><td class="num b" id="sumAll"></td></tr></tfoot>
+          <tfoot><tr><td class="b">ยอดรวม</td><td class="in"><input class="num b" data-ov="sumDom" inputmode="decimal" aria-label="ยอดรวม ในประเทศ"></td><td class="in"><input class="num b" data-ov="sumIntl" inputmode="decimal" aria-label="ยอดรวม ต่างประเทศ"></td><td class="in"><input class="num b" data-ov="sumAll" inputmode="decimal" aria-label="ยอดรวม รวมเงิน"></td></tr></tfoot>
         </table>
         <table class="f carry">
           <colgroup><col style="width:52%"><col style="width:30%"><col style="width:18%"></colgroup>
           <tr><td>ยอดรวมยกมาจากครั้งก่อน</td><td class="mid in"><input data-f="carryIn" class="num" inputmode="decimal" aria-label="ยอดรวมยกมาจากครั้งก่อน"></td><td>บาท</td></tr>
-          <tr><td>ค่าฝากส่งครั้งนี้</td><td class="mid num" id="thisTime"></td><td>บาท</td></tr>
-          <tr><td class="b">ยอดรวมยกไป</td><td class="mid num b" id="carryOut"></td><td>บาท</td></tr>
+          <tr><td>ค่าฝากส่งครั้งนี้</td><td class="mid in"><input class="num" data-ov="thisTime" inputmode="decimal" aria-label="ค่าฝากส่งครั้งนี้"></td><td>บาท</td></tr>
+          <tr><td class="b">ยอดรวมยกไป</td><td class="mid in"><input class="num b" data-ov="carryOut" inputmode="decimal" aria-label="ยอดรวมยกไป"></td><td>บาท</td></tr>
         </table>
       </div>
       <div class="right-col">
@@ -500,10 +500,17 @@ function compute(s) {
   dom['ธรรมดา'] = round2(dom['ธรรมดา'] + num(s.exFee));
   pieces += Math.round(num(s.exPieces));
   const grand = round2(s.items.reduce((a, it) => a + num(it.fee), 0) + num(s.exFee));
-  const sumDom = round2(TYPES.reduce((a, t) => a + dom[t], 0));
-  const sumIntl = round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0));
-  const thisTime = round2(sumDom + sumIntl);
-  return { dom, pieces, grand, sumDom, sumIntl, thisTime, carryOut: round2(num(s.carryIn) + thisTime) };
+  // every summary cell can be typed over (s.ov); a typed number wins and the totals after it use it
+  const ov = s.ov || {};
+  const pick = (key, auto) => (String(ov[key] ?? '').trim() !== '' ? round2(num(ov[key])) : auto);
+  TYPES.forEach(t => { dom[t] = pick('dom:' + t, dom[t]); });
+  const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, round2(dom[t] + num(s.intl[t])))]));
+  const sumDom = pick('sumDom', round2(TYPES.reduce((a, t) => a + dom[t], 0)));
+  const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0)));
+  const sumAll = pick('sumAll', round2(TYPES.reduce((a, t) => a + all[t], 0)));
+  const thisTime = pick('thisTime', sumAll);
+  const carryOut = pick('carryOut', round2(num(s.carryIn) + thisTime));
+  return { dom, all, pieces, grand, sumDom, sumIntl, sumAll, thisTime, carryOut };
 }
 function nextNo(no) {
   const m = String(no || '').match(/^(.*?)(\d+)$/);
@@ -549,9 +556,9 @@ $('itemRows').innerHTML = Array.from({ length: ROWS }, (_, i) => `
     <td class="in"><input data-i="${i}" data-k="note" aria-label="หมายเหตุ แถว ${i + 1}"></td>
   </tr>`).join('');
 $('sumRows').innerHTML = TYPES.map(t => `
-  <tr><td>${t}</td><td class="num" data-dom="${t}"></td>
+  <tr><td>${t}</td><td class="in"><input class="num" data-ov="dom:${t}" inputmode="decimal" aria-label="ในประเทศ ${t}"></td>
   <td class="in"><input data-intl="${t}" class="num" inputmode="decimal" aria-label="ต่างประเทศ ${t}"></td>
-  <td class="num" data-all="${t}"></td></tr>`).join('');
+  <td class="in"><input class="num" data-ov="all:${t}" inputmode="decimal" aria-label="รวมเงิน ${t}"></td></tr>`).join('');
 
 function fill() {
   sheet.querySelectorAll('[data-f]').forEach(el => { el.value = slip[el.dataset.f] ?? ''; });
@@ -568,15 +575,15 @@ function refresh() {
   // รวมทั้งสิ้น … ชิ้น follows the number typed in "จำนวน … ชิ้น"
   const typedPieces = String(slip.exPieces ?? '').trim();
   $('pieces').textContent = typedPieces ? `${typedPieces} ชิ้น` : '';
-  TYPES.forEach(t => {
-    sheet.querySelector(`[data-dom="${t}"]`).textContent = money(c.dom[t]);
-    sheet.querySelector(`[data-all="${t}"]`).textContent = money(round2(c.dom[t] + num(slip.intl[t])));
+  // summary cells: show what was typed, otherwise the worked-out amount (never touch the one being typed in)
+  const ov = slip.ov || {};
+  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: c.sumAll, thisTime: c.thisTime, carryOut: c.carryOut };
+  TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = c.all[t]; });
+  sheet.querySelectorAll('[data-ov]').forEach(el => {
+    if (el === document.activeElement) return;
+    const typed = String(ov[el.dataset.ov] ?? '').trim();
+    el.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[el.dataset.ov]);
   });
-  $('sumDom').textContent = money(c.sumDom);
-  $('sumIntl').textContent = money(c.sumIntl);
-  $('sumAll').textContent = money(c.thisTime);
-  $('thisTime').textContent = money(c.thisTime);
-  $('carryOut').textContent = money(c.carryOut);
   $('words').textContent = bahtText(c.thisTime);
   $('datePrint').textContent = thaiDate(slip.date);
   sheet.querySelectorAll('[data-k="code"]').forEach(el => el.classList.toggle('bad', !!el.value && !TRACK_RE.test(el.value)));
@@ -591,6 +598,10 @@ sheet.addEventListener('input', e => {
   const el = e.target;
   if (el.dataset.f) slip[el.dataset.f] = el.value;
   else if (el.dataset.intl) slip.intl[el.dataset.intl] = el.value;
+  else if (el.dataset.ov) {  // typed over a summary cell; emptied → back to the worked-out amount
+    slip.ov = slip.ov || {};
+    if (el.value.trim()) slip.ov[el.dataset.ov] = el.value; else delete slip.ov[el.dataset.ov];
+  }
   else if (el.dataset.k) {
     const it = slip.items[el.dataset.i];
     if (el.dataset.k === 'code') {
@@ -609,6 +620,8 @@ sheet.addEventListener('input', e => {
   store(KEY_DRAFT, { slip, dirty });
   refresh();
 });
+// leaving a summary cell tidies its number (it is skipped while being typed in)
+sheet.addEventListener('focusout', e => { if (e.target.dataset.ov) setTimeout(refresh); });
 // Enter moves to the next field in form order (like Tab), Shift+Enter goes back;
 // with a suggestion list open, its own handler picks first and then this moves on
 sheet.addEventListener('keydown', e => {

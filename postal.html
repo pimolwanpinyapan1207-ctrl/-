@@ -96,6 +96,15 @@ header.top p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
 .company { display: flex; align-items: end; gap: 8px; justify-content: center; font-size: 22px; font-weight: 700; }
 .company .dot { width: 260px; }
 .company input { font-size: 22px; font-weight: 700; text-align: center; }
+.combo { position: relative; }
+.suggest {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; margin: 0; padding: 4px; list-style: none;
+  background: #fff; border: 1px solid #c9d5e8; border-radius: 8px; box-shadow: 0 8px 24px rgba(16,24,36,.16);
+  font-family: var(--form-font); font-size: 16px; font-weight: 400; text-align: left; color: var(--fill-ink);
+}
+.suggest li { padding: 6px 10px; border-radius: 5px; cursor: pointer; }
+.suggest li.active, .suggest li:hover { background: #e4ecf7; }
+.suggest mark { background: none; color: var(--form-ink); font-weight: 700; }
 .title { text-align: center; font-size: 17.5px; font-weight: 700; white-space: nowrap; }
 .subtitle { text-align: center; font-size: 14.5px; white-space: nowrap; }
 .fields { display: grid; grid-template-columns: auto 1fr; gap: 3px 6px; align-items: end; }
@@ -199,7 +208,7 @@ table.f.carry { border-top: 0; }
     </div>
 
     <div class="s-head">
-      <div class="company">บริษัท <span class="dot"><input data-f="company" aria-label="ชื่อบริษัท"></span> จำกัด</div>
+      <div class="company">บริษัท <span class="dot combo"><input data-f="company" id="companyInput" aria-label="ชื่อบริษัท" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="companyList"><ul class="suggest no-print" id="companyList" role="listbox" hidden></ul></span> จำกัด</div>
       <div class="fields">
         <span>วัน/เดือน/ปี</span>
         <span class="dot"><input type="date" data-f="date" class="screen-only" aria-label="วันที่"><span class="print-only" id="datePrint"></span></span>
@@ -287,6 +296,7 @@ table.f.carry { border-top: 0; }
 </div>
 
 <script>
+const COMPANIES = ['อมตะ', 'ยงสวัสดิ์', 'โชคเจริญ', 'ไทยอักษร', 'ฟีนิกซ์'];
 const TYPES = ['ลงทะเบียน', 'รับรอง', 'EMS', 'รับประกัน', 'พัสดุฯ', 'พกง.', 'ธรรมดา'];
 const ROWS = 10;
 const KEY_SLIPS = 'postal-slips-v1';
@@ -577,6 +587,47 @@ $('btnCsv').onclick = () => {
   });
   download(`ใบนำส่ง-${stamp()}.csv`, '﻿' + lines.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
 };
+
+// ---------- company picker: suggestions pop up while typing ----------
+const coInput = $('companyInput'), coList = $('companyList');
+let coActive = -1;
+function showCompanies() {
+  const q = coInput.value.trim();
+  const opts = COMPANIES.filter(c => c.includes(q) && c !== q);
+  coActive = -1;
+  coList.innerHTML = opts.map(c => {
+    const i = q ? c.indexOf(q) : -1;
+    const label = i < 0 ? esc(c) : esc(c.slice(0, i)) + '<mark>' + esc(q) + '</mark>' + esc(c.slice(i + q.length));
+    return `<li role="option" data-v="${esc(c)}">${label}</li>`;
+  }).join('');
+  coList.hidden = !opts.length;
+  coInput.setAttribute('aria-expanded', String(!coList.hidden));
+}
+function hideCompanies() { coList.hidden = true; coInput.setAttribute('aria-expanded', 'false'); }
+function pickCompany(v) {
+  coInput.value = v;
+  coInput.dispatchEvent(new Event('input', { bubbles: true }));
+  hideCompanies();
+}
+coInput.addEventListener('focus', showCompanies);
+coInput.addEventListener('input', e => { if (e.isTrusted) showCompanies(); });
+coInput.addEventListener('blur', () => setTimeout(hideCompanies, 120));
+coInput.addEventListener('keydown', e => {
+  const items = [...coList.children];
+  if (coList.hidden || !items.length) { if (e.key === 'ArrowDown') showCompanies(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    coActive = (coActive + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items.forEach((li, i) => li.classList.toggle('active', i === coActive));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    pickCompany((items[coActive] || items[0]).dataset.v);
+  } else if (e.key === 'Escape') hideCompanies();
+});
+coList.addEventListener('mousedown', e => {
+  const li = e.target.closest('li');
+  if (li) { e.preventDefault(); pickCompany(li.dataset.v); }
+});
 
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 

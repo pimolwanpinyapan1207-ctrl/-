@@ -202,6 +202,17 @@ table.f.carry { border-top: 0; }
 .hist tr.current td { background: var(--accent-soft); }
 .hist .acts { display: flex; gap: 6px; justify-content: flex-end; }
 .hist-scroll { overflow-x: auto; }
+.history { scroll-margin-top: 110px; }
+.history .card-head .hint { margin-top: 2px; }
+.hist-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.hist-tools input, .hist-tools select { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 12px; }
+.hist-tools input { flex: 1 1 260px; min-width: 0; }
+.hist-tools select { flex: 0 1 200px; }
+.hist tr.month td { background: var(--bg); font-weight: 600; font-size: .85rem; color: var(--muted); padding-top: 10px; }
+.hist tr.month td.num { color: var(--ink); }
+.hist .who { max-width: 260px; }
+.hist .who small { display: block; color: var(--muted); font-size: .8rem; }
+.hist .found { display: block; color: var(--accent); font-size: .8rem; }
 .empty { color: var(--muted); text-align: center; padding: 18px; }
 .hint { color: var(--muted); font-size: .85rem; margin: 0; }
 
@@ -242,6 +253,7 @@ table.f.carry { border-top: 0; }
     </div>
     <div class="actions">
       <span class="status" id="status">บันทึกแล้ว</span>
+      <button class="btn" id="btnHistory"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>รายการย้อนหลัง</button>
       <button class="btn" id="btnNew"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>ใบใหม่</button>
       <button class="btn" id="btnSave"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
       <button class="btn primary" id="btnPrint"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>บันทึกและพิมพ์</button>
@@ -325,9 +337,12 @@ table.f.carry { border-top: 0; }
   </div>
   </div>
 
-  <section class="card no-print">
+  <section class="card no-print history" id="history">
     <div class="card-head">
-      <h2>ใบนำส่งที่บันทึกไว้</h2>
+      <div>
+        <h2>รายการย้อนหลัง</h2>
+        <p class="hint" id="histSummary"></p>
+      </div>
       <div class="actions">
         <button class="btn small" id="btnCsv">ส่งออก CSV (Excel)</button>
         <button class="btn small" id="btnBackup">สำรองข้อมูล</button>
@@ -335,13 +350,17 @@ table.f.carry { border-top: 0; }
         <input type="file" id="restoreFile" accept="application/json,.json" hidden>
       </div>
     </div>
+    <div class="hist-tools">
+      <input type="search" id="histQ" placeholder="ค้นหา: ผู้รับ, จังหวัด, เลขพัสดุ, เลขที่ใบ…" aria-label="ค้นหารายการย้อนหลัง" autocomplete="off">
+      <select id="histMonth" aria-label="เลือกเดือน"><option value="">ทุกเดือน</option></select>
+    </div>
     <div class="hist-scroll">
       <table class="hist">
-        <thead><tr><th>เล่ม/เลขที่</th><th>วันที่</th><th class="hide-sm">ครั้งที่</th><th class="num">ชิ้น</th><th class="num">ค่าฝากส่ง</th><th class="num hide-sm">ยอดยกไป</th><th></th></tr></thead>
+        <thead><tr><th>เล่ม/เลขที่</th><th>วันที่</th><th>ผู้รับ</th><th class="num">ชิ้น</th><th class="num">ค่าฝากส่ง</th><th class="num hide-sm">ยอดยกไป</th><th></th></tr></thead>
         <tbody id="histRows"></tbody>
       </table>
     </div>
-    <p class="hint">ข้อมูลเก็บไว้ในเบราว์เซอร์ของเครื่องนี้ · กด “สำรองข้อมูล” เป็นระยะ เพื่อเก็บไฟล์ไว้หรือย้ายไปเครื่องอื่น</p>
+    <p class="hint">เก็บทุกใบไว้ไม่จำกัด ในเบราว์เซอร์ของเครื่องนี้ · กด “สำรองข้อมูล” เป็นระยะ เพื่อเก็บไฟล์ไว้หรือย้ายไปเครื่องอื่น</p>
   </section>
 </div>
 
@@ -618,21 +637,62 @@ $('btnNew').onclick = () => {
 $('btnSave').onclick = save;
 $('btnPrint').onclick = () => { if (save()) window.print(); };
 
+// every saved slip, newest first, grouped by month with a subtotal; filter by text and month
+const monthName = ym => thaiDate(ym + '-01', 'long').replace(/^1\s+/, '');
 function renderHistory() {
-  const rows = slips.slice().sort(byNewest);
-  $('histRows').innerHTML = rows.length ? rows.map(s => {
-    const c = compute({ ...s, intl: s.intl || {} });
-    return `<tr class="${s.id === slip.id ? 'current' : ''}">
-      <td>${esc(s.book || '-')} / ${esc(s.no || '-')}</td>
-      <td>${esc(thaiDate(s.date, 'short'))}</td>
-      <td class="hide-sm">${esc(s.round || '')}</td>
-      <td class="num">${c.pieces}</td>
-      <td class="num">${money(c.thisTime) || '0'}</td>
-      <td class="num hide-sm">${money(c.carryOut) || '0'}</td>
-      <td><div class="acts"><button class="btn small" data-open="${s.id}">เปิด</button><button class="btn small danger" data-del="${s.id}">ลบ</button></div></td>
+  const q = normTh($('histQ').value), month = $('histMonth').value;
+  // month menu: every month that has a slip
+  const months = [...new Set(slips.map(s => (s.date || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+  const sel = $('histMonth');
+  const want = ['<option value="">ทุกเดือน</option>', ...months.map(m => `<option value="${m}">${esc(monthName(m))}</option>`)].join('');
+  if (sel.dataset.opts !== want) { sel.innerHTML = want; sel.dataset.opts = want; sel.value = months.includes(month) ? month : ''; }
+
+  const rows = slips.slice().sort(byNewest).filter(s => !sel.value || (s.date || '').startsWith(sel.value)).map(s => {
+    const items = (s.items || []).filter(it => it.to || it.code || num(it.fee));
+    let found = '';
+    if (q) {
+      const head = normTh([s.book, s.no, s.company, s.office, s.sender, thaiDate(s.date), isoToDmy(s.date)].join(' '));
+      const hit = items.find(it => normTh([it.to, it.dest, it.code, it.note].join(' ')).includes(q));
+      if (!head.includes(q) && !hit) return null;
+      if (hit) found = [hit.to, hit.code].filter(Boolean).join(' · ');
+    }
+    return { s, items, found, c: compute({ ...s, intl: s.intl || {} }) };
+  }).filter(Boolean);
+
+  const total = rows.reduce((a, r) => a + r.c.thisTime, 0);
+  $('histSummary').textContent = !slips.length ? 'ยังไม่มีใบที่บันทึกไว้'
+    : (q || sel.value ? `พบ ${rows.length} จาก ${slips.length} ใบ` : `ทั้งหมด ${slips.length} ใบ`) + ` · ค่าฝากส่งรวม ${money(round2(total)) || '0'} บาท`;
+
+  let html = '', lastMonth = null;
+  for (const r of rows) {
+    const m = (r.s.date || '').slice(0, 7);
+    if (m !== lastMonth) {
+      lastMonth = m;
+      const inMonth = rows.filter(x => (x.s.date || '').slice(0, 7) === m);
+      html += `<tr class="month"><td colspan="3">${esc(m ? monthName(m) : 'ไม่ระบุวันที่')} · ${inMonth.length} ใบ</td>
+        <td class="num">${inMonth.reduce((a, x) => a + x.c.pieces, 0)}</td>
+        <td class="num">${money(round2(inMonth.reduce((a, x) => a + x.c.thisTime, 0))) || '0'}</td><td class="hide-sm"></td><td></td></tr>`;
+    }
+    const first = r.items[0]?.to || '';
+    const more = r.items.length > 1 ? `และอีก ${r.items.length - 1} รายการ` : '';
+    html += `<tr class="${r.s.id === slip.id ? 'current' : ''}">
+      <td>${esc(r.s.book || '-')} / ${esc(r.s.no || '-')}</td>
+      <td>${esc(thaiDate(r.s.date, 'short'))}</td>
+      <td class="who">${esc(first) || '<span class="hint">-</span>'}${more ? `<small>${more}</small>` : ''}${r.found ? `<span class="found">พบ: ${esc(r.found)}</span>` : ''}</td>
+      <td class="num">${r.c.pieces}</td>
+      <td class="num">${money(r.c.thisTime) || '0'}</td>
+      <td class="num hide-sm">${money(r.c.carryOut) || '0'}</td>
+      <td><div class="acts"><button class="btn small" data-open="${r.s.id}">เปิด</button><button class="btn small danger" data-del="${r.s.id}">ลบ</button></div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" class="empty">ยังไม่มีใบนำส่งที่บันทึกไว้</td></tr>';
+  }
+  $('histRows').innerHTML = html || `<tr><td colspan="7" class="empty">${slips.length ? 'ไม่พบใบที่ตรงกับที่ค้นหา' : 'ยังไม่มีใบนำส่งที่บันทึกไว้'}</td></tr>`;
 }
+$('histQ').addEventListener('input', renderHistory);
+$('histMonth').addEventListener('change', renderHistory);
+$('btnHistory').onclick = () => {
+  $('history').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => $('histQ').focus({ preventScroll: true }), 400);
+};
 $('histRows').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (b?.dataset.open) openSlip(b.dataset.open);

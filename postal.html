@@ -112,6 +112,10 @@ header.top p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
 .subtitle { text-align: center; font-size: 14.5px; white-space: nowrap; }
 .fields { display: grid; grid-template-columns: auto 1fr; gap: 3px 6px; align-items: end; }
 .fields > span { text-align: right; white-space: nowrap; }
+.datebox { display: flex; align-items: center; position: relative; }
+.calbtn { border: 0; background: none; color: var(--form-ink); padding: 2px 4px; border-radius: 4px; display: inline-flex; }
+.calbtn:hover { background: #e4ecf7; }
+#datePick { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
 .fields .round { display: flex; align-items: end; gap: 6px; white-space: nowrap; }
 .fields .round .dot { width: 70px; }
 .fields .round input { text-align: center; }
@@ -214,7 +218,7 @@ table.f.carry { border-top: 0; }
       <div class="company">บริษัท <span class="dot combo"><input data-f="company" id="companyInput" aria-label="ชื่อบริษัท" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="companyList"><ul class="suggest no-print" id="companyList" role="listbox" hidden></ul></span> จำกัด</div>
       <div class="fields">
         <span>วัน/เดือน/ปี</span>
-        <span class="dot"><input type="date" data-f="date" class="screen-only" aria-label="วันที่"><span class="print-only" id="datePrint"></span></span>
+        <span class="dot"><span class="datebox screen-only"><input id="dateText" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="calBtn" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button><input type="date" id="datePick" tabindex="-1" aria-hidden="true"></span><span class="print-only" id="datePrint"></span></span>
       </div>
       <div class="title">ใบนำส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินสินเชื่อ</div>
       <div class="fields">
@@ -373,6 +377,22 @@ function thaiDate(iso, month = 'long') {
   const d = new Date(iso + 'T00:00:00');
   return isNaN(d) ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month, year: 'numeric' });
 }
+// date field is typed วัน/เดือน/ปี พ.ศ. (30/10/2569); slips keep ISO yyyy-mm-dd
+function isoToDmy(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${+m[1] + 543}` : '';
+}
+function dmyToIso(s) {
+  s = String(s || '').trim();
+  let m = s.match(/^(\d{1,2})[\/.\-\s](\d{1,2})[\/.\-\s](\d{2}|\d{4})$/) || s.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (!m) return null;
+  let [, d, mo, y] = m.map(Number);
+  if (m[3].length === 2) y += 2500;  // 69 → 2569
+  if (y > 2400) y -= 543;            // พ.ศ. → ค.ศ.; a ค.ศ. year typed as-is also works
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 const todayIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -443,6 +463,8 @@ $('sumRows').innerHTML = TYPES.map(t => `
 
 function fill() {
   sheet.querySelectorAll('[data-f]').forEach(el => { el.value = slip[el.dataset.f] ?? ''; });
+  $('dateText').value = isoToDmy(slip.date);
+  $('dateText').classList.remove('bad');
   sheet.querySelectorAll('[data-i]').forEach(el => { el.value = slip.items[el.dataset.i][el.dataset.k] ?? ''; });
   sheet.querySelectorAll('[data-intl]').forEach(el => { el.value = slip.intl[el.dataset.intl] ?? ''; });
   sheet.querySelectorAll('[data-k="to"]').forEach(fitText);
@@ -495,7 +517,7 @@ sheet.addEventListener('input', e => {
 // with a suggestion list open, its own handler picks first and then this moves on
 sheet.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
-  const fields = [...sheet.querySelectorAll('input, select')].filter(el => el.offsetParent !== null);
+  const fields = [...sheet.querySelectorAll('input, select')].filter(el => el.offsetParent !== null && el.tabIndex >= 0);
   const at = fields.indexOf(e.target);
   if (at < 0) return;
   e.preventDefault();
@@ -649,6 +671,35 @@ coInput.addEventListener('keydown', e => {
 coList.addEventListener('mousedown', e => {
   const li = e.target.closest('li');
   if (li) { e.preventDefault(); pickCompany(li.dataset.v); }
+});
+
+// ---------- date: typed วัน/เดือน/ปี, or picked from the calendar ----------
+const dateText = $('dateText'), datePick = $('datePick');
+function setDate(iso) {
+  if (iso === slip.date) return;
+  slip.date = iso;
+  dirty = true;
+  store(KEY_DRAFT, { slip, dirty });
+  refresh();
+}
+dateText.addEventListener('input', () => {
+  const iso = dmyToIso(dateText.value);
+  dateText.classList.toggle('bad', !!dateText.value.trim() && !iso);
+  if (iso) setDate(iso);
+});
+dateText.addEventListener('blur', () => {  // tidy to dd/mm/yyyy, or put back the last good date
+  if (dmyToIso(dateText.value) || !dateText.value.trim()) dateText.value = isoToDmy(slip.date);
+  dateText.classList.toggle('bad', !!dateText.value.trim() && !dmyToIso(dateText.value));
+});
+$('calBtn').addEventListener('click', () => {
+  datePick.value = slip.date || todayIso();
+  try { datePick.showPicker(); } catch { datePick.focus(); datePick.click(); }
+});
+datePick.addEventListener('change', () => {
+  if (!datePick.value) return;
+  setDate(datePick.value);
+  dateText.value = isoToDmy(datePick.value);
+  dateText.classList.remove('bad');
 });
 
 // ---------- recipient picker: search สกร. by province / district name ----------

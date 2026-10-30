@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ใบนำส่งไปรษณีย์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: toolbar, then the paper form itself (typed into directly, printed as-is on A4), then saved-slip history. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #18212e;
+  --muted: #5d6878;
+  --line: #dde2ea;
+  --accent: #1d4f91;
+  --accent-ink: #ffffff;
+  --accent-soft: #e5edf8;
+  --ok: #23794a;     --ok-soft: #e0f2e7;
+  --warn: #a35f00;   --warn-soft: #fbf0dd;
+  --bad: #b4322c;
+  /* the paper form stays paper-coloured in both themes */
+  --paper: #ffffff;
+  --form-ink: #1f3864;
+  --fill-ink: #111111;
+  --form-line: #1f3864;
+  --form-head: #e4ecf7;
+  --display: "Bai Jamjuree", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --body: "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+  --form-font: "Sarabun", "TH Sarabun New", "Leelawadee UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161e; --surface: #19202b; --ink: #e6eaf1; --muted: #9aa5b5; --line: #2b3442;
+    --accent: #7fb0ef; --accent-ink: #0d1520; --accent-soft: #1d2a3d;
+    --ok: #63c48d; --ok-soft: #183026; --warn: #e9a646; --warn-soft: #33281a; --bad: #f07c74;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161e; --surface: #19202b; --ink: #e6eaf1; --muted: #9aa5b5; --line: #2b3442;
+  --accent: #7fb0ef; --accent-ink: #0d1520; --accent-soft: #1d2a3d;
+  --ok: #63c48d; --ok-soft: #183026; --warn: #e9a646; --warn-soft: #33281a; --bad: #f07c74;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
+h1, h2 { font-family: var(--display); margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+header.top h1 { font-size: 1.75rem; }
+header.top p { margin: 2px 0 0; color: var(--muted); font-size: .9rem; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 4px 10px; font-size: .85rem; }
+.btn.danger { color: var(--bad); }
+.status { font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
+.status.dirty { background: var(--warn-soft); color: var(--warn); }
+.notice { padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .9rem; }
+
+/* ---------- the paper form ---------- */
+.paper-scroll { overflow-x: auto; border-radius: 10px; }
+.sheet {
+  width: 794px; min-width: 794px; margin: 0 auto; padding: 34px 38px 40px;
+  background: var(--paper); color: var(--form-ink); font-family: var(--form-font); font-size: 15px; line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 6px 24px rgba(0,0,0,.06); border-radius: 4px;
+}
+.sheet input, .sheet select {
+  border: 0; background: transparent; color: var(--fill-ink); font-family: var(--form-font); font-size: 15px;
+  width: 100%; padding: 2px 4px; min-width: 0; border-radius: 3px;
+}
+.sheet input:hover, .sheet select:hover { background: #f4f7fc; }
+.sheet input:focus, .sheet select:focus { background: #fffbe8; outline: 1.5px solid #9db5dc; outline-offset: 0; }
+.sheet select { appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center; cursor: pointer; }
+.sheet .bad { box-shadow: inset 0 0 0 1.5px var(--bad); background: #fdeceb; }
+.dot { border-bottom: 1px dotted var(--form-line); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ctr { text-align: center; }
+.b { font-weight: 700; }
+
+.s-top { display: flex; justify-content: space-between; font-size: 14px; }
+.s-top label { display: flex; align-items: end; gap: 6px; }
+.s-top .dot { width: 150px; }
+.s-top .no.dot { width: 90px; }
+.s-head { display: grid; grid-template-columns: 1fr 236px; gap: 4px 18px; margin-top: 10px; align-items: end; }
+.company { display: flex; align-items: end; gap: 8px; justify-content: center; font-size: 22px; font-weight: 700; }
+.company .dot { width: 260px; }
+.company input { font-size: 22px; font-weight: 700; text-align: center; }
+.title { text-align: center; font-size: 17.5px; font-weight: 700; white-space: nowrap; }
+.subtitle { text-align: center; font-size: 14.5px; white-space: nowrap; }
+.fields { display: grid; grid-template-columns: auto 1fr; gap: 3px 6px; align-items: end; }
+.fields > span { text-align: right; white-space: nowrap; }
+.fields .round { display: flex; align-items: end; gap: 6px; white-space: nowrap; }
+.fields .round .dot { width: 70px; }
+.fields .round input { text-align: center; }
+
+table.f { border-collapse: collapse; width: 100%; table-layout: fixed; }
+table.f th, table.f td { border: 1px solid var(--form-line); padding: 0 4px; height: 30px; vertical-align: middle; }
+table.f th { background: var(--form-head); font-weight: 700; text-align: center; line-height: 1.2; height: 40px; }
+table.f td.in { padding: 0; }
+table.f td.in input, table.f td.in select { height: 29px; }
+table.f.items { margin-top: 8px; border: 2px solid var(--form-line); }
+.items .note { font-size: 12.5px; line-height: 1.6; padding: 4px 8px; white-space: nowrap; }
+.items .excount { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; font-size: 12px; gap: 2px; letter-spacing: -.1px; }
+.items .excount input { width: 30px; text-align: center; border-bottom: 1px dotted var(--form-line); border-radius: 0; }
+
+.s-bottom { display: grid; grid-template-columns: 56.5% minmax(0, 1fr); gap: 0 14px; margin-top: 12px; }
+.cap { font-weight: 700; font-size: 16px; margin-bottom: 3px; }
+table.f.sum, table.f.carry { border: 2px solid var(--form-line); }
+table.f.sum td, table.f.carry td { height: 26px; }
+table.f.carry { border-top: 0; }
+.carry td:first-child { border-right: 0; }
+.carry td.mid { border-left: 0; border-right: 0; }
+.carry td:last-child { border-left: 0; text-align: center; width: 18%; }
+.right-col { display: grid; grid-template-rows: auto auto 1fr; padding-top: 26px; font-size: 14px; min-width: 0; }
+.words { border-bottom: 1px dotted var(--form-line); min-height: 40px; display: flex; align-items: end; gap: 8px; padding: 0 4px 2px; }
+.words b { font-weight: 400; color: var(--form-ink); }
+.words span { color: var(--fill-ink); }
+.checked { text-align: right; padding: 4px 6px 0 0; white-space: nowrap; }
+.sign-area { display: grid; grid-template-columns: 116px 1fr; gap: 8px; align-items: end; margin-top: 10px; }
+.stamp { display: grid; justify-items: center; gap: 4px; font-weight: 700; }
+.stamp-box { width: 108px; height: 118px; border: 2px solid var(--form-line); border-radius: 10px; }
+.sigs { display: grid; gap: 30px; text-align: center; }
+.sigs div { line-height: 1.7; }
+.sigline { display: inline-block; width: 120px; border-bottom: 1px dotted var(--form-line); }
+
+.print-only { display: none; }
+
+/* ---------- history ---------- */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.card-head h2 { font-size: 1.15rem; }
+.hist { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.hist th, .hist td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.hist th { color: var(--muted); font-weight: 500; font-size: .85rem; }
+.hist td.num { text-align: right; }
+.hist tr.current td { background: var(--accent-soft); }
+.hist .acts { display: flex; gap: 6px; justify-content: flex-end; }
+.hist-scroll { overflow-x: auto; }
+.empty { color: var(--muted); text-align: center; padding: 18px; }
+.hint { color: var(--muted); font-size: .85rem; margin: 0; }
+
+@media (max-width: 640px) {
+  .hist .hide-sm { display: none; }
+}
+
+/* ---------- print: only the sheet, filling A4 ---------- */
+@page { size: A4 portrait; margin: 9mm 10mm; }
+@media print {
+  html, body { background: #fff !important; }
+  .wrap { padding: 0; max-width: none; display: block; }
+  .no-print { display: none !important; }
+  .paper-scroll { overflow: visible; }
+  .sheet { box-shadow: none; border-radius: 0; padding: 0; margin: 0 auto; width: 190mm; min-width: 0; }
+  table.f td { height: 33px; }
+  table.f.sum td, table.f.carry td { height: 29px; }
+  .stamp-box { height: 132px; }
+  .sheet input, .sheet select { background: transparent !important; outline: 0 !important; }
+  .sheet .bad { box-shadow: none; background: transparent; }
+  .sheet input::placeholder { color: transparent; }
+  .screen-only { display: none !important; }
+  .print-only { display: inline; }
+  table.f th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top no-print">
+    <div>
+      <h1>ใบนำส่งไปรษณีย์</h1>
+      <p>ใบนำส่งสิ่งของทางไปรษณีย์ ชำระค่าบริการเป็นเงินเชื่อ · กรอกลงฟอร์มได้เลย ระบบรวมยอดให้</p>
+    </div>
+    <div class="actions">
+      <span class="status" id="status">บันทึกแล้ว</span>
+      <button class="btn" id="btnNew">+ ใบใหม่</button>
+      <button class="btn" id="btnSave">บันทึก</button>
+      <button class="btn primary" id="btnPrint">บันทึกและพิมพ์</button>
+    </div>
+  </header>
+
+  <div class="notice no-print" id="storageNote" hidden>เบราว์เซอร์นี้บันทึกข้อมูลไม่ได้ (อาจเป็นโหมดไม่ระบุตัวตน) พิมพ์ได้ แต่ประวัติจะหายเมื่อปิดหน้า</div>
+
+  <div class="paper-scroll">
+  <div class="sheet" id="sheet">
+    <div class="s-top">
+      <label>เล่มที่ <span class="dot"><input data-f="book" aria-label="เล่มที่"></span></label>
+      <label>เลขที่ <span class="dot no"><input data-f="no" class="ctr" aria-label="เลขที่"></span></label>
+    </div>
+
+    <div class="s-head">
+      <div class="company">บริษัท <span class="dot"><input data-f="company" aria-label="ชื่อบริษัท"></span> จำกัด</div>
+      <div class="fields">
+        <span>วัน/เดือน/ปี</span>
+        <span class="dot"><input type="date" data-f="date" class="screen-only" aria-label="วันที่"><span class="print-only" id="datePrint"></span></span>
+      </div>
+      <div class="title">ใบนำส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินสินเชื่อ</div>
+      <div class="fields">
+        <span>หน่วยงาน</span><span class="dot"><input data-f="unit" aria-label="หน่วยงาน"></span>
+        <span>ใบอนุญาตเลขที่</span><span class="dot"><input data-f="permit" aria-label="ใบอนุญาตเลขที่"></span>
+      </div>
+      <div class="subtitle">ได้ฝากส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินเชื่อดังรายการต่อไปนี้</div>
+      <div class="fields">
+        <span>ศฝ./ปณ.</span><span class="dot"><input data-f="office" aria-label="ศฝ./ปณ."></span>
+        <span>ฝากส่งครั้งที่</span><span class="round"><span class="dot"><input data-f="round" inputmode="numeric" aria-label="ฝากส่งครั้งที่"></span> ของเดือนนี้</span>
+      </div>
+    </div>
+
+    <table class="f items">
+      <colgroup><col style="width:7%"><col style="width:25%"><col style="width:13.5%"><col style="width:11%"><col style="width:20.5%"><col style="width:11.5%"><col style="width:11.5%"></colgroup>
+      <thead><tr><th>ลำดับ</th><th>ผู้รับ</th><th>ปลายทาง</th><th>ประเภท<br>บริการ</th><th>เลขที่บริการ (13 หลัก)</th><th>ค่าบริการ<br>(บาท)</th><th>หมายเหตุ</th></tr></thead>
+      <tbody id="itemRows"></tbody>
+      <tfoot>
+        <tr>
+          <td class="note" colspan="3" rowspan="2"><u>หมายเหตุ</u> ช่องประเภทบริการให้ระบุบริการที่ฝากส่ง เช่น<br>ลงทะเบียน รับรอง EMS รับประกัน พัสดุ หรือ พกง. เป็นต้น</td>
+          <td colspan="2"><span class="excount">ไปรษณียภัณฑ์ธรรมดารวม Express จำนวน <input data-f="exPieces" inputmode="numeric" aria-label="จำนวนชิ้น ไปรษณียภัณฑ์ธรรมดา"> ชิ้น</span></td>
+          <td class="in"><input data-f="exFee" class="num" inputmode="decimal" aria-label="ค่าบริการ ไปรษณียภัณฑ์ธรรมดา"></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td colspan="2" class="ctr b">รวมทั้งสิ้น</td>
+          <td class="num b" id="grand"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="s-bottom">
+      <div>
+        <div class="cap">สรุปยอดฝากส่งครั้งนี้</div>
+        <table class="f sum">
+          <colgroup><col style="width:22%"><col style="width:36%"><col style="width:21%"><col style="width:21%"></colgroup>
+          <thead><tr><th>ประเภท<br>บริการ</th><th>ในประเทศ (ยอดรวม)</th><th>ต่างประเทศ<br>(ยอดรวม)</th><th>รวมเงิน<br>(1+2)</th></tr></thead>
+          <tbody id="sumRows"></tbody>
+          <tfoot><tr><td class="b">ยอดรวม</td><td class="num b" id="sumDom"></td><td class="num b" id="sumIntl"></td><td class="num b" id="sumAll"></td></tr></tfoot>
+        </table>
+        <table class="f carry">
+          <colgroup><col style="width:52%"><col style="width:30%"><col style="width:18%"></colgroup>
+          <tr><td>ยอดรวมยกมาจากครั้งก่อน</td><td class="mid in"><input data-f="carryIn" class="num" inputmode="decimal" aria-label="ยอดรวมยกมาจากครั้งก่อน"></td><td>บาท</td></tr>
+          <tr><td>ค่าฝากส่งครั้งนี้</td><td class="mid num" id="thisTime"></td><td>บาท</td></tr>
+          <tr><td class="b">ยอดรวมยกไป</td><td class="mid num b" id="carryOut"></td><td>บาท</td></tr>
+        </table>
+      </div>
+      <div class="right-col">
+        <div class="words"><b>(ตัวอักษร)</b> <span id="words"></span></div>
+        <div class="checked">ได้ตรวจสอบถูกต้องแล้ว</div>
+        <div class="sign-area">
+          <div class="stamp"><div class="stamp-box"></div>ตราประจำวัน</div>
+          <div class="sigs">
+            <div>ลงชื่อ <span class="sigline"></span><br>ผู้รับผิดชอบในการฝากส่ง</div>
+            <div>ลงชื่อ <span class="sigline"></span><br>ได้ตรวจสอบและรับฝากถูกต้องแล้ว</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <section class="card no-print">
+    <div class="card-head">
+      <h2>ใบนำส่งที่บันทึกไว้</h2>
+      <div class="actions">
+        <button class="btn small" id="btnCsv">ส่งออก CSV (Excel)</button>
+        <button class="btn small" id="btnBackup">สำรองข้อมูล</button>
+        <button class="btn small" id="btnRestore">นำเข้าข้อมูลสำรอง</button>
+        <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="hist-scroll">
+      <table class="hist">
+        <thead><tr><th>เล่ม/เลขที่</th><th>วันที่</th><th class="hide-sm">ครั้งที่</th><th class="num">ชิ้น</th><th class="num">ค่าฝากส่ง</th><th class="num hide-sm">ยอดยกไป</th><th></th></tr></thead>
+        <tbody id="histRows"></tbody>
+      </table>
+    </div>
+    <p class="hint">ข้อมูลเก็บไว้ในเบราว์เซอร์ของเครื่องนี้ · กด “สำรองข้อมูล” เป็นระยะ เพื่อเก็บไฟล์ไว้หรือย้ายไปเครื่องอื่น</p>
+  </section>
+</div>
+
+<script>
+const TYPES = ['ลงทะเบียน', 'รับรอง', 'EMS', 'รับประกัน', 'พัสดุฯ', 'พกง.', 'ธรรมดา'];
+const ROWS = 10;
+const KEY_SLIPS = 'postal-slips-v1';
+const KEY_DRAFT = 'postal-draft-v1';
+const TRACK_RE = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
+
+// ---------- storage (falls back to memory when the browser refuses) ----------
+let storageOk = true;
+const mem = {};
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { storageOk = false; return key in mem ? mem[key] : fallback; }
+}
+function store(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); }
+  catch { storageOk = false; mem[key] = val; }
+}
+
+// ---------- numbers & Thai text ----------
+const num = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isFinite(n) ? n : 0; };
+const round2 = n => Math.round(n * 100) / 100;
+function money(n) {
+  if (!n) return '';
+  const frac = Math.abs(n % 1) > 0.0001;
+  return n.toLocaleString('en-US', { minimumFractionDigits: frac ? 2 : 0, maximumFractionDigits: 2 });
+}
+const DIG = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+const POS = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน'];
+function readSix(s, hasHigher) {  // up to 6 digits; hasHigher = millions precede it
+  const n = s.replace(/^0+/, '');
+  let out = '';
+  for (let i = 0; i < n.length; i++) {
+    const d = +n[i], p = n.length - 1 - i;
+    if (!d) continue;
+    if (p === 1 && d === 1) out += 'สิบ';
+    else if (p === 1 && d === 2) out += 'ยี่สิบ';
+    else if (p === 0 && d === 1 && (n.length > 1 || hasHigher)) out += 'เอ็ด';
+    else out += DIG[d] + POS[p];
+  }
+  return out;
+}
+function readInt(s) {
+  s = s.replace(/^0+/, '');
+  if (!s) return '';
+  if (s.length <= 6) return readSix(s);
+  return readInt(s.slice(0, -6)) + 'ล้าน' + readSix(s.slice(-6), true);
+}
+function bahtText(n) {
+  n = round2(n);
+  if (!n) return '';
+  const [b, st] = n.toFixed(2).split('.');
+  const baht = readInt(b), satang = readInt(st);
+  return (baht ? baht + 'บาท' : '') + (satang ? satang + 'สตางค์' : 'ถ้วน');
+}
+function thaiDate(iso, month = 'long') {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d) ? '' : d.toLocaleDateString('th-TH', { day: 'numeric', month, year: 'numeric' });
+}
+const todayIso = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- slip model ----------
+const blankItem = () => ({ to: '', dest: '', type: '', code: '', fee: '', note: '' });
+function compute(s) {
+  const dom = Object.fromEntries(TYPES.map(t => [t, 0]));
+  let pieces = 0;
+  for (const it of s.items) {
+    const fee = num(it.fee);
+    if (it.to || it.code || fee) pieces++;
+    if (it.type && fee) dom[it.type] = round2(dom[it.type] + fee);
+  }
+  dom['ธรรมดา'] = round2(dom['ธรรมดา'] + num(s.exFee));
+  pieces += Math.round(num(s.exPieces));
+  const grand = round2(s.items.reduce((a, it) => a + num(it.fee), 0) + num(s.exFee));
+  const sumDom = round2(TYPES.reduce((a, t) => a + dom[t], 0));
+  const sumIntl = round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0));
+  const thisTime = round2(sumDom + sumIntl);
+  return { dom, pieces, grand, sumDom, sumIntl, thisTime, carryOut: round2(num(s.carryIn) + thisTime) };
+}
+function nextNo(no) {
+  const m = String(no || '').match(/^(.*?)(\d+)$/);
+  if (!m) return '';
+  return m[1] + String(+m[2] + 1).padStart(m[2].length, '0');
+}
+const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.savedAt || 0) - (a.savedAt || 0);
+
+function freshSlip() {
+  const last = slips.slice().sort(byNewest)[0];
+  const date = todayIso(), month = date.slice(0, 7);
+  const sameMonth = slips.filter(s => (s.date || '').slice(0, 7) === month).sort(byNewest);
+  return {
+    id: null, date,
+    book: last?.book || '', no: last ? nextNo(last.no) : '0001',
+    company: last?.company || '', unit: last?.unit || '', permit: last?.permit || '', office: last?.office || '',
+    round: String(sameMonth.length + 1),
+    items: Array.from({ length: ROWS }, blankItem),
+    exPieces: '', exFee: '', intl: {},
+    carryIn: sameMonth[0] ? String(compute(sameMonth[0]).carryOut || '') : '',
+  };
+}
+
+// ---------- state ----------
+let slips = load(KEY_SLIPS, []);
+let slip, dirty = false;
+const draft = load(KEY_DRAFT, null);
+slip = draft?.slip || freshSlip();
+dirty = !!draft?.dirty;
+
+// ---------- build the form ----------
+const $ = id => document.getElementById(id);
+const sheet = $('sheet');
+$('itemRows').innerHTML = Array.from({ length: ROWS }, (_, i) => `
+  <tr>
+    <td class="ctr">${i + 1}</td>
+    <td class="in"><input data-i="${i}" data-k="to" aria-label="ผู้รับ แถว ${i + 1}"></td>
+    <td class="in"><input data-i="${i}" data-k="dest" aria-label="ปลายทาง แถว ${i + 1}"></td>
+    <td class="in"><select data-i="${i}" data-k="type" aria-label="ประเภทบริการ แถว ${i + 1}"><option value=""></option>${TYPES.map(t => `<option>${t}</option>`).join('')}</select></td>
+    <td class="in"><input data-i="${i}" data-k="code" class="ctr" maxlength="13" autocapitalize="characters" spellcheck="false" aria-label="เลขที่บริการ แถว ${i + 1}"></td>
+    <td class="in"><input data-i="${i}" data-k="fee" class="num" inputmode="decimal" aria-label="ค่าบริการ แถว ${i + 1}"></td>
+    <td class="in"><input data-i="${i}" data-k="note" aria-label="หมายเหตุ แถว ${i + 1}"></td>
+  </tr>`).join('');
+$('sumRows').innerHTML = TYPES.map(t => `
+  <tr><td>${t}</td><td class="num" data-dom="${t}"></td>
+  <td class="in"><input data-intl="${t}" class="num" inputmode="decimal" aria-label="ต่างประเทศ ${t}"></td>
+  <td class="num" data-all="${t}"></td></tr>`).join('');
+
+function fill() {
+  sheet.querySelectorAll('[data-f]').forEach(el => { el.value = slip[el.dataset.f] ?? ''; });
+  sheet.querySelectorAll('[data-i]').forEach(el => { el.value = slip.items[el.dataset.i][el.dataset.k] ?? ''; });
+  sheet.querySelectorAll('[data-intl]').forEach(el => { el.value = slip.intl[el.dataset.intl] ?? ''; });
+  refresh();
+}
+function refresh() {
+  const c = compute(slip);
+  $('grand').textContent = money(c.grand);
+  TYPES.forEach(t => {
+    sheet.querySelector(`[data-dom="${t}"]`).textContent = money(c.dom[t]);
+    sheet.querySelector(`[data-all="${t}"]`).textContent = money(round2(c.dom[t] + num(slip.intl[t])));
+  });
+  $('sumDom').textContent = money(c.sumDom);
+  $('sumIntl').textContent = money(c.sumIntl);
+  $('sumAll').textContent = money(c.thisTime);
+  $('thisTime').textContent = money(c.thisTime);
+  $('carryOut').textContent = money(c.carryOut);
+  $('words').textContent = bahtText(c.thisTime);
+  $('datePrint').textContent = thaiDate(slip.date);
+  sheet.querySelectorAll('[data-k="code"]').forEach(el => el.classList.toggle('bad', !!el.value && !TRACK_RE.test(el.value)));
+  const st = $('status');
+  st.textContent = dirty ? 'ยังไม่ได้บันทึก' : (slip.id ? 'บันทึกแล้ว' : 'ใบใหม่');
+  st.classList.toggle('dirty', dirty);
+  renderHistory();
+}
+
+sheet.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.f) slip[el.dataset.f] = el.value;
+  else if (el.dataset.intl) slip.intl[el.dataset.intl] = el.value;
+  else if (el.dataset.k) {
+    const it = slip.items[el.dataset.i];
+    if (el.dataset.k === 'code') {
+      const pos = el.selectionStart;
+      el.value = el.value.toUpperCase().replace(/\s/g, '');
+      el.setSelectionRange(pos, pos);
+    }
+    it[el.dataset.k] = el.value;
+    // ทุกชุดส่ง EMS เป็นหลัก: ใส่ประเภทให้เองเมื่อเริ่มกรอกแถว
+    if (el.dataset.k !== 'type' && !it.type && (it.to || it.code || it.fee)) {
+      it.type = 'EMS';
+      sheet.querySelector(`[data-i="${el.dataset.i}"][data-k="type"]`).value = 'EMS';
+    }
+  } else return;
+  dirty = true;
+  store(KEY_DRAFT, { slip, dirty });
+  refresh();
+});
+// Enter moves down to the same column in the next row, like a spreadsheet
+sheet.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.dataset.k) return;
+  e.preventDefault();
+  const next = sheet.querySelector(`[data-i="${+e.target.dataset.i + 1}"][data-k="${e.target.dataset.k}"]`);
+  (next || e.target).focus();
+});
+
+// ---------- actions ----------
+function save() {
+  const dup = slips.find(s => s.id !== slip.id && s.no && s.no === slip.no && (s.book || '') === (slip.book || ''));
+  if (dup && !confirm(`มีใบนำส่ง เล่ม ${slip.book || '-'} เลขที่ ${slip.no} อยู่แล้ว\nบันทึกซ้ำเลขเดิมใช่ไหม?`)) return false;
+  const bad = slip.items.filter(it => it.code && !TRACK_RE.test(it.code)).length;
+  if (bad && !confirm(`เลขที่บริการ ${bad} รายการไม่ครบ 13 หลัก (เช่น EX123456789TH)\nบันทึกต่อไหม?`)) return false;
+  if (!slip.id) slip.id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  slip.savedAt = Date.now();
+  const copy = JSON.parse(JSON.stringify(slip));
+  const i = slips.findIndex(s => s.id === slip.id);
+  if (i >= 0) slips[i] = copy; else slips.push(copy);
+  store(KEY_SLIPS, slips);
+  dirty = false;
+  store(KEY_DRAFT, { slip, dirty });
+  refresh();
+  return true;
+}
+function openSlip(id) {
+  if (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก เปิดใบอื่นเลยไหม?')) return;
+  const s = slips.find(x => x.id === id);
+  if (!s) return;
+  slip = JSON.parse(JSON.stringify(s));
+  slip.items = Array.from({ length: ROWS }, (_, i) => ({ ...blankItem(), ...(slip.items[i] || {}) }));
+  slip.intl = slip.intl || {};
+  dirty = false;
+  store(KEY_DRAFT, { slip, dirty });
+  fill();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function remove(id) {
+  const s = slips.find(x => x.id === id);
+  if (!s || !confirm(`ลบใบนำส่ง เลขที่ ${s.no || '-'} (${thaiDate(s.date)}) ใช่ไหม?`)) return;
+  slips = slips.filter(x => x.id !== id);
+  store(KEY_SLIPS, slips);
+  if (slip.id === id) { slip.id = null; dirty = true; }
+  refresh();
+}
+$('btnNew').onclick = () => {
+  if (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก เริ่มใบใหม่เลยไหม?')) return;
+  slip = freshSlip(); dirty = false;
+  store(KEY_DRAFT, { slip, dirty });
+  fill();
+};
+$('btnSave').onclick = save;
+$('btnPrint').onclick = () => { if (save()) window.print(); };
+
+function renderHistory() {
+  const rows = slips.slice().sort(byNewest);
+  $('histRows').innerHTML = rows.length ? rows.map(s => {
+    const c = compute({ ...s, intl: s.intl || {} });
+    return `<tr class="${s.id === slip.id ? 'current' : ''}">
+      <td>${esc(s.book || '-')} / ${esc(s.no || '-')}</td>
+      <td>${esc(thaiDate(s.date, 'short'))}</td>
+      <td class="hide-sm">${esc(s.round || '')}</td>
+      <td class="num">${c.pieces}</td>
+      <td class="num">${money(c.thisTime) || '0'}</td>
+      <td class="num hide-sm">${money(c.carryOut) || '0'}</td>
+      <td><div class="acts"><button class="btn small" data-open="${s.id}">เปิด</button><button class="btn small danger" data-del="${s.id}">ลบ</button></div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="empty">ยังไม่มีใบนำส่งที่บันทึกไว้</td></tr>';
+}
+$('histRows').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b?.dataset.open) openSlip(b.dataset.open);
+  if (b?.dataset.del) remove(b.dataset.del);
+});
+
+// ---------- export / backup ----------
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const stamp = () => todayIso().replace(/-/g, '');
+$('btnBackup').onclick = () => download(`ใบนำส่ง-สำรอง-${stamp()}.json`, JSON.stringify({ app: 'postal-slips', v: 1, slips }, null, 1), 'application/json');
+$('btnRestore').onclick = () => $('restoreFile').click();
+$('restoreFile').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const incoming = Array.isArray(data) ? data : data.slips;
+    if (!Array.isArray(incoming)) throw new Error();
+    const ids = new Set(slips.map(s => s.id));
+    const add = incoming.filter(s => s && s.id && !ids.has(s.id));
+    slips = slips.concat(add);
+    store(KEY_SLIPS, slips);
+    refresh();
+    alert(`นำเข้า ${add.length} ใบ (ข้ามใบที่มีอยู่แล้ว ${incoming.length - add.length} ใบ)`);
+  } catch { alert('ไฟล์นี้ไม่ใช่ไฟล์สำรองของใบนำส่ง'); }
+};
+$('btnCsv').onclick = () => {
+  const head = ['เล่มที่', 'เลขที่', 'วันที่', 'ฝากส่งครั้งที่', 'ลำดับ', 'ผู้รับ', 'ปลายทาง', 'ประเภทบริการ', 'เลขที่บริการ', 'ค่าบริการ', 'หมายเหตุ'];
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
+  const lines = [head];
+  slips.slice().sort(byNewest).reverse().forEach(s => {
+    s.items.forEach((it, i) => {
+      if (it.to || it.code || num(it.fee)) lines.push([s.book, s.no, s.date, s.round, i + 1, it.to, it.dest, it.type, it.code, num(it.fee) || '', it.note]);
+    });
+    if (num(s.exFee) || num(s.exPieces)) lines.push([s.book, s.no, s.date, s.round, '', `ไปรษณียภัณฑ์ธรรมดารวม Express ${num(s.exPieces)} ชิ้น`, '', 'ธรรมดา', '', num(s.exFee) || '', '']);
+  });
+  download(`ใบนำส่ง-${stamp()}.csv`, '﻿' + lines.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
+};
+
+window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+fill();
+if (!storageOk) $('storageNote').hidden = false;
+</script>
+</body>
+</html>

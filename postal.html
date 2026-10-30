@@ -259,6 +259,26 @@ table.f.carry { border-top: 0; }
 .hist-tools input, .hist-tools select { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 12px; }
 .hist-tools input { flex: 1 1 260px; min-width: 0; }
 .hist-tools select { flex: 0 1 200px; }
+/* month calendar: pick one month to see only its slips */
+.monthpick { position: relative; }
+.mp-btn { display: inline-flex; align-items: center; gap: 6px; height: 100%; }
+.mp-btn.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.mp-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: 280px; padding: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px -10px rgba(16,24,40,.3);
+}
+.mp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mp-head b { font-family: var(--display); font-size: 1.05rem; }
+.mp-nav { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; width: 32px; height: 32px; font-size: 1.1rem; line-height: 1; }
+.mp-nav:hover { border-color: var(--muted); }
+.mp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mp-grid button { position: relative; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 4px 7px; display: grid; gap: 1px; justify-items: center; }
+.mp-grid button:hover { border-color: var(--accent); }
+.mp-grid button small { font-size: .7rem; color: var(--muted); min-height: 1em; }
+.mp-grid button.has { font-weight: 600; }
+.mp-grid button.now { border-color: var(--accent); }
+.mp-grid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.mp-grid button.on small { color: var(--accent-ink); opacity: .85; }
 .hist tr.month td { background: var(--bg); font-weight: 600; font-size: .85rem; color: var(--muted); padding-top: 10px; }
 .hist tr.month td.num { color: var(--ink); }
 .hist .who { max-width: 260px; }
@@ -464,6 +484,17 @@ table.f.carry { border-top: 0; }
     <div class="hist-tools">
       <input type="search" id="histQ" placeholder="ค้นหา: ผู้รับ, จังหวัด, เลขพัสดุ, เลขที่ใบ…" aria-label="ค้นหารายการย้อนหลัง" autocomplete="off">
       <select id="histMonth" aria-label="ช่วงเวลา"><option value="3">3 เดือน</option><option value="6">6 เดือน</option><option value="" selected>ทุกเดือน</option></select>
+      <div class="monthpick">
+        <button type="button" class="btn mp-btn" id="mpBtn" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg>เลือกเดือน</button>
+        <div class="mp-pop" id="mpPop" role="dialog" aria-label="เลือกเดือน" hidden>
+          <div class="mp-head">
+            <button type="button" class="mp-nav" id="mpPrev" aria-label="ปีก่อน">‹</button>
+            <b id="mpYear"></b>
+            <button type="button" class="mp-nav" id="mpNext" aria-label="ปีถัดไป">›</button>
+          </div>
+          <div class="mp-grid" id="mpGrid"></div>
+        </div>
+      </div>
     </div>
     <div class="hist-scroll">
       <table class="hist">
@@ -831,10 +862,13 @@ function shiftMonths(iso, n) {  // same day n months away, clamped to the month'
 }
 function renderHistory() {
   const q = normTh($('histQ').value), sel = $('histMonth');
-  // period: last 3 or 6 months counted back from today, or everything ("")
-  const since = sel.value ? shiftMonths(todayIso(), -Number(sel.value)) : '';
+  // period: one month from the calendar ("m:yyyy-mm"), the last 3 or 6 months from today, or everything ("")
+  const oneMonth = sel.value.startsWith('m:') ? sel.value.slice(2) : '';
+  const since = sel.value && !oneMonth ? shiftMonths(todayIso(), -Number(sel.value)) : '';
+  $('mpBtn').classList.toggle('on', !!oneMonth);
 
-  const rows = slips.slice().sort(byNewest).filter(s => !since || (s.date || '') >= since).map(s => {
+  const rows = slips.slice().sort(byNewest)
+    .filter(s => oneMonth ? (s.date || '').startsWith(oneMonth) : !since || (s.date || '') >= since).map(s => {
     const items = (s.items || []).filter(it => it.to || it.code || num(it.fee));
     let found = '';
     if (q) {
@@ -877,6 +911,48 @@ function renderHistory() {
 }
 $('histQ').addEventListener('input', renderHistory);
 $('histMonth').addEventListener('change', renderHistory);
+
+// month calendar: a year of months, each with how many slips it has; picking one shows only that month
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+let mpYear = new Date().getFullYear();
+function renderMonthPicker() {
+  const picked = $('histMonth').value.startsWith('m:') ? $('histMonth').value.slice(2) : '';
+  const nowYm = todayIso().slice(0, 7);
+  const count = {};
+  slips.forEach(s => { const ym = (s.date || '').slice(0, 7); if (ym) count[ym] = (count[ym] || 0) + 1; });
+  $('mpYear').textContent = 'พ.ศ. ' + (mpYear + 543);
+  $('mpGrid').innerHTML = TH_MONTHS.map((name, i) => {
+    const ym = `${mpYear}-${String(i + 1).padStart(2, '0')}`;
+    const n = count[ym] || 0;
+    const cls = [n && 'has', ym === nowYm && 'now', ym === picked && 'on'].filter(Boolean).join(' ');
+    return `<button type="button" data-ym="${ym}" class="${cls}">${name}<small>${n ? n + ' ใบ' : ''}</small></button>`;
+  }).join('');
+}
+function openMonthPicker(open) {
+  $('mpPop').hidden = !open;
+  $('mpBtn').setAttribute('aria-expanded', String(open));
+  if (open) {
+    const v = $('histMonth').value;
+    if (v.startsWith('m:')) mpYear = Number(v.slice(2, 6));
+    renderMonthPicker();
+  }
+}
+function pickMonth(ym) {
+  const sel = $('histMonth');
+  let opt = sel.querySelector('option[data-month]');
+  if (!opt) { opt = document.createElement('option'); opt.dataset.month = '1'; sel.append(opt); }
+  opt.value = 'm:' + ym;
+  opt.textContent = monthName(ym);
+  sel.value = opt.value;
+  openMonthPicker(false);
+  renderHistory();
+}
+$('mpBtn').onclick = () => openMonthPicker($('mpPop').hidden);
+$('mpPrev').onclick = () => { mpYear--; renderMonthPicker(); };
+$('mpNext').onclick = () => { mpYear++; renderMonthPicker(); };
+$('mpGrid').addEventListener('click', e => { const b = e.target.closest('button[data-ym]'); if (b) pickMonth(b.dataset.ym); });
+document.addEventListener('click', e => { if (!$('mpPop').hidden && !e.target.closest('.monthpick')) openMonthPicker(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('mpPop').hidden) openMonthPicker(false); });
 // sidebar views: the form, the saved-slip history, or the daily report
 function showView(v) {
   $('viewForm').hidden = v !== 'form';

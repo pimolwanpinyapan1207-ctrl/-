@@ -91,15 +91,6 @@ button { cursor: pointer; }
 .side .status.dirty::before { background: #fbbf4a; }
 .side-foot { margin-top: auto; font-size: .78rem; padding: 0 10px; line-height: 1.5; position: relative; z-index: 1; display: grid; gap: 4px; }
 .side-foot span { opacity: .75; word-break: break-word; }
-.side-link { justify-self: start; border: 0; background: none; color: #fff; padding: 0; text-decoration: underline; text-underline-offset: 2px; opacity: .9; font-size: .8rem; }
-.side-link:hover { opacity: 1; }
-
-/* sign-in card (same accounts as tracker.html) */
-.login { grid-template-columns: 1fr; border-color: var(--accent); }
-.login h2 { font-size: 1.15rem; }
-.login-form { display: flex; flex-wrap: wrap; gap: 8px; }
-.login-form input { flex: 1 1 200px; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 9px 12px; }
-.login-err { margin: 0; color: var(--bad); font-size: .9rem; }
 
 /* "บันทึกแล้ว" pop-up */
 .toast {
@@ -297,25 +288,12 @@ table.f.carry { border-top: 0; }
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
   </div>
 
-  <div class="side-foot"><span id="cloudInfo">กำลังเชื่อมต่อฐานข้อมูล…</span><button type="button" class="side-link" id="signOutBtn" hidden>ออกจากระบบ</button></div>
+  <div class="side-foot"><span id="cloudInfo">กำลังเชื่อมต่อฐานข้อมูล…</span></div>
 </aside>
 
 <main class="wrap">
 
   <div class="notice no-print" id="storageNote" hidden>เชื่อมต่อฐานข้อมูลไม่ได้ และเบราว์เซอร์นี้เก็บข้อมูลไม่ได้ พิมพ์ได้ แต่ใบที่บันทึกจะหายเมื่อปิดหน้า</div>
-
-  <section class="card no-print login" id="loginView" hidden>
-    <div>
-      <h2>เข้าสู่ระบบเพื่อบันทึกใบนำส่ง</h2>
-      <p class="hint">ใช้อีเมลและรหัสผ่านเดียวกับระบบติดตามชุดเบิก · ใบที่บันทึกแล้ว ทุกคนเห็นรายการเดียวกันทุกเครื่อง</p>
-    </div>
-    <form class="login-form" id="loginForm">
-      <input type="email" id="loginEmail" placeholder="อีเมล" autocomplete="username" required aria-label="อีเมล">
-      <input type="password" id="loginPass" placeholder="รหัสผ่าน" autocomplete="current-password" required aria-label="รหัสผ่าน">
-      <button class="btn primary" id="loginBtn">เข้าสู่ระบบ</button>
-    </form>
-    <p class="login-err" id="loginErr" hidden></p>
-  </section>
 
   <div class="paper-scroll" id="viewForm">
   <div class="sheet" id="sheet">
@@ -605,6 +583,7 @@ function refresh() {
   const st = $('status');
   st.textContent = dirty ? 'ยังไม่ได้บันทึก' : (slip.id ? 'บันทึกแล้ว' : 'ใบใหม่');
   st.classList.toggle('dirty', dirty);
+  if (cloud) showCloudInfo();
   renderHistory();
 }
 
@@ -654,7 +633,6 @@ function toast(msg, bad) {
 let saving = false;
 async function save() {
   if (saving) return false;
-  if (needLogin()) return false;
   const dup = slips.find(s => s.id !== slip.id && s.no && s.no === slip.no && (s.book || '') === (slip.book || ''));
   if (dup && !confirm(`มีใบนำส่ง เล่ม ${slip.book || '-'} เลขที่ ${slip.no} อยู่แล้ว\nบันทึกซ้ำเลขเดิมใช่ไหม?`)) return false;
   const bad = slip.items.filter(it => it.code && !TRACK_RE.test(it.code)).length;
@@ -662,11 +640,17 @@ async function save() {
   if (!slip.id) slip.id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   slip.savedAt = Date.now();
   const copy = JSON.parse(JSON.stringify(slip));
+  let msg = '✓ บันทึกแล้ว', warn = false;
   if (cloud) {
     saving = true;
     $('status').textContent = 'กำลังบันทึก…';
     try { await cloudPut(copy); }
-    catch (err) { saving = false; refresh(); toast('บันทึกไม่สำเร็จ: ' + cloudErrText(err), true); return false; }
+    catch (err) {
+      // no permission yet (or offline): keep it on this computer; it goes up the next time the page opens
+      if (!storageOk) { saving = false; refresh(); toast('บันทึกไม่สำเร็จ: ' + cloudErrText(err), true); return false; }
+      msg = '✓ บันทึกไว้ในเครื่องนี้แล้ว (ยังส่งขึ้นฐานข้อมูลไม่ได้)';
+      warn = true;
+    }
     saving = false;
   }
   const i = slips.findIndex(s => s.id === slip.id);
@@ -675,7 +659,7 @@ async function save() {
   dirty = false;
   store(KEY_DRAFT, { slip, dirty });
   refresh();
-  toast('✓ บันทึกแล้ว');
+  toast(msg, warn);
   return true;
 }
 function openSlip(id) {
@@ -692,7 +676,7 @@ function openSlip(id) {
 }
 async function remove(id) {
   const s = slips.find(x => x.id === id);
-  if (!s || needLogin() || !confirm(`ลบใบนำส่ง เลขที่ ${s.no || '-'} (${thaiDate(s.date)}) ใช่ไหม?\nทุกคนที่ใช้ระบบจะไม่เห็นใบนี้อีก`)) return;
+  if (!s || !confirm(`ลบใบนำส่ง เลขที่ ${s.no || '-'} (${thaiDate(s.date)}) ใช่ไหม?\nทุกคนที่ใช้ระบบจะไม่เห็นใบนี้อีก`)) return;
   if (cloud) {
     try { await cloudDel(id); }
     catch (err) { toast('ลบไม่สำเร็จ: ' + cloudErrText(err), true); return; }
@@ -800,10 +784,9 @@ $('restoreFile').onchange = async e => {
     const data = JSON.parse(await file.text());
     const incoming = Array.isArray(data) ? data : data.slips;
     if (!Array.isArray(incoming)) throw new Error();
-    if (needLogin()) return;
     const ids = new Set(slips.map(s => s.id));
     const add = incoming.filter(s => s && s.id && !ids.has(s.id));
-    if (cloud) for (const s of add) await cloudPut(s);
+    if (cloud) for (const s of add) { try { await cloudPut(s); } catch { /* stays in this browser */ } }
     slips = slips.concat(add);
     store(KEY_SLIPS, slips);
     refresh();
@@ -969,15 +952,21 @@ senderInput.addEventListener('input', () => fitText(senderInput));
 
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-// ---------- shared storage: Supabase, same project and sign-in as ระบบติดตามชุดเบิก ----------
-// Slips are rows "postal:<id>" in the tracker's docsets table (tracker.html skips them), so everyone
-// signed in sees one list on every device. Row-level security only lets signed-in users read or write.
-// If Supabase can't be reached at all, the page falls back to this browser's storage as before.
+// ---------- shared storage: Supabase (same project as ระบบติดตามชุดเบิก), no sign-in needed ----------
+// Slips are rows "postal:<id>" in the tracker's docsets table (tracker.html skips them), so everyone who
+// opens the link sees one list on every device. The database lets anyone with the link read/write only
+// these "postal:" rows (supabase-postal.sql); the tracker's own rows still need its sign-in.
+// A slip the database refuses (permission not opened yet, or offline) stays in this browser as "pending"
+// and goes up the next time the page opens. Without Supabase at all, the page works from browser storage.
 const SUPABASE_URL = 'https://urqkmzqtmvwkmezadnke.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycWttenF0bXZ3a21lemFkbmtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3OTMwMTMsImV4cCI6MjEwNzM2OTAxM30.AWyx6WE6_uA_z6XLpbz-sxSltdbBMnFiUykXLkbCU4w';
 const PREFIX = 'postal:';
-let sb = null, cloud = false, cloudStarted = false;
-// session storage that survives browsers which block localStorage (then it lasts until the tab closes)
+const KEY_PENDING = 'postal-pending-v1';    // ids saved here but not yet in the database
+const KEY_MIGRATED = 'postal-migrated-v1';  // slips from before the shared list were queued once
+let sb = null, cloud = false;
+let pending = new Set(load(KEY_PENDING, []));
+const savePending = () => store(KEY_PENDING, [...pending]);
+// auth storage that survives browsers which block localStorage
 const safeStorage = {
   getItem: k => { try { return localStorage.getItem(k); } catch { return k in mem ? mem[k] : null; } },
   setItem: (k, v) => { try { localStorage.setItem(k, v); } catch { mem[k] = v; } },
@@ -985,12 +974,20 @@ const safeStorage = {
 };
 const loadScript = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.head.append(s); });
 const cloudErrText = err => (err && (err.status === 401 || err.status === 403 || err.code === '42501'))
-  ? 'ไม่มีสิทธิ์ ลองออกจากระบบแล้วเข้าใหม่' : (err && err.message) || 'เชื่อมต่อไม่ได้';
+  ? 'ฐานข้อมูลยังไม่เปิดสิทธิ์ให้บันทึก' : (err && err.message) || 'เชื่อมต่อไม่ได้';
 async function cloudPut(s) {
-  const { error } = await sb.from('docsets').upsert({ id: PREFIX + s.id, data: s, updated_at: new Date().toISOString() });
-  if (error) throw error;
+  try {
+    const { error } = await sb.from('docsets').upsert({ id: PREFIX + s.id, data: s, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    pending.delete(s.id);
+  } catch (err) {
+    pending.add(s.id);
+    throw err;
+  } finally { savePending(); }
 }
 async function cloudDel(id) {
+  pending.delete(id);
+  savePending();
   const { error } = await sb.from('docsets').delete().eq('id', PREFIX + id);
   if (error) throw error;
 }
@@ -999,18 +996,15 @@ async function cloudFetch() {
   if (error) { toast('โหลดใบนำส่งไม่สำเร็จ: ' + cloudErrText(error), true); return null; }
   return data.map(r => ({ ...r.data, id: r.id.slice(PREFIX.length) }));
 }
-// true (and shows the sign-in card) when saving has to wait for a sign-in
-function needLogin() {
-  if (cloud || !sb) return false;
-  showLogin(true);
-  showView('form');
-  $('loginEmail').focus();
-  toast('เข้าสู่ระบบก่อน แล้วกดบันทึกอีกครั้ง', true);
-  return true;
+// the shared list plus this browser's slips that are still waiting to go up
+function withPending(remote) {
+  const ids = new Set(remote.map(s => s.id));
+  return remote.concat(slips.filter(s => pending.has(s.id) && !ids.has(s.id)));
 }
-function showLogin(on) {
-  $('loginView').hidden = !on;
-  if (on) { $('cloudInfo').textContent = 'ยังไม่ได้เข้าสู่ระบบ'; $('signOutBtn').hidden = true; }
+function showCloudInfo() {
+  $('cloudInfo').textContent = pending.size
+    ? `บันทึกไว้ในเครื่องนี้ ${pending.size} ใบ รอส่งขึ้นฐานข้อมูล`
+    : 'บันทึกร่วมกันทุกเครื่อง ทุกคนเห็นรายการเดียวกัน';
 }
 let refetchTimer;
 function refetchSoon() {  // someone else saved or deleted: refresh the list, keep what is being typed
@@ -1018,25 +1012,32 @@ function refetchSoon() {  // someone else saved or deleted: refresh the list, ke
   refetchTimer = setTimeout(async () => {
     const remote = await cloudFetch();
     if (!remote) return;
-    slips = remote;
+    slips = withPending(remote);
     store(KEY_SLIPS, slips);
     refresh();
   }, 400);
 }
-async function beginCloud(session) {
-  showLogin(false);
-  $('cloudInfo').textContent = 'บันทึกร่วมกันทุกเครื่อง · ' + (session.user.email || '');
-  $('signOutBtn').hidden = false;
-  if (cloudStarted) return;
-  cloudStarted = true;
-  const remote = await cloudFetch();
-  if (!remote) { cloudStarted = false; return; }
-  // slips that were saved only in this browser before the switch move up to the shared list once
-  const ids = new Set(remote.map(s => s.id));
-  for (const s of slips.filter(s => s.id && !ids.has(s.id))) {
-    try { await cloudPut(s); remote.push(s); } catch { /* stays local; tried again next time */ }
+async function startCloud() {
+  try { await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'); } catch { /* offline */ }
+  if (!window.supabase) {
+    $('cloudInfo').textContent = 'เชื่อมต่อฐานข้อมูลไม่ได้ · เก็บในเครื่องนี้';
+    if (!storageOk) $('storageNote').hidden = false;
+    return;
   }
-  slips = remote;
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: safeStorage } });
+  const remote = await cloudFetch();
+  if (!remote) { $('cloudInfo').textContent = 'เชื่อมต่อฐานข้อมูลไม่ได้ · เก็บในเครื่องนี้'; return; }
+  // first run: every slip saved only in this browser before the shared list joins the queue once
+  if (!load(KEY_MIGRATED, false)) {
+    const ids = new Set(remote.map(s => s.id));
+    slips.filter(s => s.id && !ids.has(s.id)).forEach(s => pending.add(s.id));
+    savePending();
+    store(KEY_MIGRATED, true);
+  }
+  for (const s of slips.filter(s => pending.has(s.id))) {
+    try { await cloudPut(s); remote.push(s); } catch { /* still pending */ }
+  }
+  slips = withPending(remote);
   store(KEY_SLIPS, slips);
   cloud = true;
   $('storageNote').hidden = true;
@@ -1049,39 +1050,6 @@ async function beginCloud(session) {
     })
     .subscribe();
 }
-async function startCloud() {
-  try { await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'); } catch { /* offline */ }
-  if (!window.supabase) {
-    $('cloudInfo').textContent = 'เชื่อมต่อฐานข้อมูลไม่ได้ · เก็บในเครื่องนี้';
-    if (!storageOk) $('storageNote').hidden = false;
-    return;
-  }
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storage: safeStorage } });
-  sb.auth.onAuthStateChange((_event, session) => {
-    if (session) beginCloud(session);
-    else if (cloudStarted) location.reload();
-    else showLogin(true);
-  });
-  const { data } = await sb.auth.getSession();
-  if (data.session) beginCloud(data.session); else showLogin(true);
-}
-$('loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const email = $('loginEmail').value.trim(), password = $('loginPass').value;
-  if (!email || !password) return;
-  $('loginBtn').disabled = true;
-  $('loginErr').hidden = true;
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  $('loginBtn').disabled = false;
-  if (error) {
-    $('loginErr').textContent = error.code === 'invalid_credentials' ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : 'เข้าสู่ระบบไม่สำเร็จ: ' + error.message;
-    $('loginErr').hidden = false;
-  } else {
-    $('loginPass').value = '';
-    toast('เข้าสู่ระบบแล้ว');
-  }
-});
-$('signOutBtn').onclick = () => { if (sb && confirm('ออกจากระบบใช่ไหม?')) sb.auth.signOut(); };
 
 fill();
 startCloud();

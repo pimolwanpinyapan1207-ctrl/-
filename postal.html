@@ -592,8 +592,9 @@ function compute(s) {
   const sumDom = pick('sumDom', round2(TYPES.reduce((a, t) => a + dom[t], 0)));
   const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0)));
   const sumAll = pick('sumAll', round2(TYPES.reduce((a, t) => a + all[t], 0)));
+  // ยอดยกมา / ค่าฝากส่งครั้งนี้ / ยอดยกไป are typed only; thisTime falls back to ยอดรวม for words and lists
   const thisTime = pick('thisTime', sumAll);
-  const carryOut = pick('carryOut', round2(num(s.carryIn) + thisTime));
+  const carryOut = pick('carryOut', 0);
   return { dom, all, pieces, grand, sumDom, sumIntl, sumAll, thisTime, carryOut };
 }
 function nextNo(no) {
@@ -615,7 +616,7 @@ function freshSlip() {
     round: String(sameMonth.length + 1),
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},
-    carryIn: sameMonth[0] ? String(compute(sameMonth[0]).carryOut || '') : '',
+    carryIn: '',  // typed by hand, not carried over
   };
 }
 
@@ -661,7 +662,7 @@ function refresh() {
   $('pieces').textContent = typedPieces ? `${typedPieces} ชิ้น` : '';
   // summary cells: show what was typed, otherwise the worked-out amount (never touch the one being typed in)
   const ov = slip.ov || {};
-  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: c.sumAll, thisTime: c.thisTime, carryOut: c.carryOut };
+  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: c.sumAll, thisTime: 0, carryOut: 0 };  // last two: typed only
   TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = c.all[t]; });
   sheet.querySelectorAll('[data-ov]').forEach(el => {
     if (el === document.activeElement) return;
@@ -849,7 +850,7 @@ function renderHistory() {
       <td class="who">${esc(first) || '<span class="hint">-</span>'}${more ? `<small>${more}</small>` : ''}${r.found ? `<span class="found">พบ: ${esc(r.found)}</span>` : ''}</td>
       <td class="num">${r.c.pieces}</td>
       <td class="num">${money(r.c.thisTime) || '0'}</td>
-      <td class="num hide-sm">${money(r.c.carryOut) || '0'}</td>
+      <td class="num hide-sm">${money(r.c.carryOut) || '-'}</td>
       <td><div class="acts"><button class="btn small" data-open="${r.s.id}">เปิด</button><button class="btn small danger" data-del="${r.s.id}">ลบ</button></div></td>
     </tr>`;
   }

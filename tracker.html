@@ -1288,7 +1288,8 @@ body.locked .tabs, body.locked #listView, body.locked #reportView, body.locked #
   const sbErr = (error) => ({ code: error && (error.code === "42501" || error.status === 401 || error.status === 403) ? "invalid_argument" : "unavailable", message: error && error.message });
 
   async function sbRefresh() {
-    const { data, error } = await sb.from("docsets").select("id,data");
+    // rows "postal:…" belong to postal.html (ใบนำส่งไปรษณีย์), which shares this table and sign-in
+    const { data, error } = await sb.from("docsets").select("id,data").not("id", "like", "postal:%");
     if (error) { $("notice").textContent = "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + error.message; $("notice").hidden = false; return; }
     rows = data.map((r) => ({ id: r.id, ...r.data }));
     render();

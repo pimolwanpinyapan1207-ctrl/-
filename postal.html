@@ -127,7 +127,8 @@ table.f td.in { padding: 0; }
 table.f td.in input, table.f td.in select { height: 29px; }
 table.f.items { margin-top: 8px; border: 2px solid var(--form-line); }
 .items .note { font-size: 12.5px; line-height: 1.6; padding: 4px 8px; white-space: nowrap; }
-.items .excount { display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; font-size: 12px; gap: 2px; letter-spacing: -.1px; }
+.items .excount { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 3px; white-space: nowrap; font-size: 12px; line-height: 1.25; padding: 2px 0; }
+.items .pieces { margin-left: 10px; color: var(--fill-ink); }
 .items .excount input { width: 30px; text-align: center; border-bottom: 1px dotted var(--form-line); border-radius: 0; }
 
 .s-bottom { display: grid; grid-template-columns: 56.5% minmax(0, 1fr); gap: 0 14px; margin-top: 12px; }
@@ -244,7 +245,7 @@ table.f.carry { border-top: 0; }
           <td></td>
         </tr>
         <tr>
-          <td colspan="2" class="ctr b">รวมทั้งสิ้น</td>
+          <td colspan="2" class="ctr b">รวมทั้งสิ้น<span id="pieces" class="pieces"></span></td>
           <td class="num b" id="grand"></td>
           <td></td>
         </tr>
@@ -473,6 +474,7 @@ function fill() {
 function refresh() {
   const c = compute(slip);
   $('grand').textContent = money(c.grand);
+  $('pieces').textContent = c.pieces ? `${c.pieces} ชิ้น` : '';
   TYPES.forEach(t => {
     sheet.querySelector(`[data-dom="${t}"]`).textContent = money(c.dom[t]);
     sheet.querySelector(`[data-all="${t}"]`).textContent = money(round2(c.dom[t] + num(slip.intl[t])));

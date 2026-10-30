@@ -100,6 +100,41 @@ button { cursor: pointer; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.bad { background: #b4322c; }
+
+/* page header shared by the views */
+.view { display: grid; gap: 16px; }
+.view-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px 16px; padding: 4px 4px 0; }
+.view-head h2 { font-size: 1.5rem; line-height: 1.2; }
+.view-head p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+.view-head .status { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.view-head .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* the paper on screen: lifted card, row highlight while filling in */
+#viewForm .paper-scroll { padding: 2px 2px 10px; }
+#viewForm .sheet { border-radius: 12px; border: 1px solid #e3e8f0; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 12px 32px -12px rgba(16,40,80,.22); }
+.items tbody tr:hover td:not(:first-child) { background: #f6f9fe; }
+.items tbody tr:focus-within td { background: #fffbea; }
+.items tbody tr:focus-within td:first-child { color: var(--accent); font-weight: 700; }
+
+/* daily report */
+.rep-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rep-date { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 2px 4px; }
+.rep-date input { border: 0; background: transparent; width: 120px; padding: 4px 6px; font-weight: 600; }
+.rep-date .calbtn { color: var(--ink); }
+.rep-date .calbtn:hover { background: var(--accent-soft); }
+#repPick { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+.rep-title h3 { margin: 0; font-family: var(--display); font-size: 1.1rem; }
+.rep-title p { margin: 2px 0 0; color: var(--muted); }
+.rep-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: var(--bg); }
+.stat b { display: block; font-family: var(--display); font-size: 1.45rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: .82rem; }
+.rep-table td, .rep-table th { white-space: nowrap; }
+.rep-table td.to { white-space: normal; min-width: 180px; }
+.rep-table tfoot td { font-weight: 700; border-top: 2px solid var(--line); border-bottom: 0; }
+.rep-table .slipno { color: var(--muted); }
+a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.print-block { display: block; }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
   .side { position: static; height: auto; padding: 16px; gap: 14px; }
@@ -249,10 +284,23 @@ table.f.carry { border-top: 0; }
   .stamp-box { height: 132px; }
   .sheet input, .sheet select { background: transparent !important; outline: 0 !important; }
   .sheet .bad { box-shadow: none; background: transparent; }
-  .sheet input::placeholder { color: transparent; }
+  .sheet input::placeholder { color: transparent !important; }
   .screen-only { display: none !important; }
   .print-only { display: inline; }
   table.f th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .view { display: block; }
+  #viewForm .paper-scroll { padding: 0; }
+  #viewForm .sheet { border: 0; box-shadow: none; border-radius: 0; }
+  .items tbody tr td { background: transparent !important; }
+  /* "พิมพ์รายงาน" prints the daily report instead of the slip */
+  body:not(.printing-report) #report { display: none !important; }
+  body.printing-report #viewForm { display: none !important; }
+  #report { font-size: 12.5px; }
+  #report .card { border: 0; padding: 0; gap: 10px; }
+  #report .stat { background: #fff; padding: 6px 10px; }
+  #report .stat b { font-size: 1.1rem; }
+  #report .rep-table th, #report .rep-table td { padding: 5px 6px; }
+  #report a.trk { color: #000; text-decoration: none; }
 }
 </style>
 </head>
@@ -266,19 +314,13 @@ table.f.carry { border-top: 0; }
     <div><h1>ใบนำส่งไปรษณีย์</h1><small>ชำระค่าบริการเป็นเงินเชื่อ</small></div>
   </div>
 
-  <nav class="side-group" aria-label="หน้า">
+  <nav class="side-group" aria-label="เมนู">
     <div class="side-label">เมนู</div>
-    <button class="side-btn on" data-view="form"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>ฟอร์มใบนำส่ง</button>
+    <button class="side-btn on" data-view="form" id="btnNew"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 1.5h-6v13h9v-10z"/><path d="M9.5 1.5v3h3M8 7.5v4M6 9.5h4"/></svg>ฟอร์มใหม่</button>
     <button class="side-btn" data-view="history" id="btnHistory"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>รายการย้อนหลัง<span class="count" id="histCount">0</span></button>
-  </nav>
-
-  <div class="side-group">
-    <div class="side-label">ใบนี้</div>
-    <span class="status" id="status">บันทึกแล้ว</span>
-    <button class="side-btn" id="btnNew"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>ใบใหม่</button>
-    <button class="side-btn" id="btnSave"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
+    <button class="side-btn" data-view="report" id="btnReport"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
     <button class="side-btn primary" id="btnPrint"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>บันทึกและพิมพ์</button>
-  </div>
+  </nav>
 
   <div class="side-group">
     <div class="side-label">ข้อมูล</div>
@@ -295,7 +337,15 @@ table.f.carry { border-top: 0; }
 
   <div class="notice no-print" id="storageNote" hidden>เชื่อมต่อฐานข้อมูลไม่ได้ และเบราว์เซอร์นี้เก็บข้อมูลไม่ได้ พิมพ์ได้ แต่ใบที่บันทึกจะหายเมื่อปิดหน้า</div>
 
-  <div class="paper-scroll" id="viewForm">
+  <section class="view" id="viewForm">
+  <header class="view-head no-print">
+    <div>
+      <h2>ฟอร์มใหม่</h2>
+      <p>กรอกลงในฟอร์มได้เลย กด Enter ไปช่องถัดไป · เสร็จแล้วกด “บันทึกและพิมพ์”</p>
+    </div>
+    <span class="status" id="status">ใบใหม่</span>
+  </header>
+  <div class="paper-scroll">
   <div class="sheet" id="sheet">
     <div class="s-top">
       <label>เล่มที่ <span class="dot"><input data-f="book" aria-label="เล่มที่"></span></label>
@@ -369,6 +419,40 @@ table.f.carry { border-top: 0; }
     </div>
   </div>
   </div>
+  </section>
+
+  <section class="view report" id="report" hidden>
+    <header class="view-head no-print">
+      <div>
+        <h2>รายงานประจำวัน</h2>
+        <p>ทุกรายการที่ฝากส่งในวันที่เลือก จากใบนำส่งที่บันทึกไว้</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="repCopy">คัดลอกชื่อและเลขพัสดุ</button>
+        <button class="btn primary" id="repPrint">พิมพ์รายงาน</button>
+      </div>
+    </header>
+    <div class="card">
+      <div class="rep-bar no-print">
+        <button class="btn small" id="repPrev" aria-label="วันก่อนหน้า">‹ วันก่อน</button>
+        <span class="datebox rep-date"><input id="repDate" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ของรายงาน (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="repCal" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button><input type="date" id="repPick" tabindex="-1" aria-hidden="true"></span>
+        <button class="btn small" id="repNext" aria-label="วันถัดไป">วันถัดไป ›</button>
+        <button class="btn small" id="repToday">วันนี้</button>
+      </div>
+      <div class="rep-title print-block">
+        <h3>รายงานการฝากส่งไปรษณีย์ประจำวัน</h3>
+        <p id="repHeading"></p>
+      </div>
+      <div class="rep-stats" id="repStats"></div>
+      <div class="hist-scroll">
+        <table class="hist rep-table">
+          <thead><tr><th class="num">#</th><th>เลขที่ใบ</th><th>ผู้รับ</th><th>ปลายทาง</th><th>ประเภท</th><th>เลขพัสดุ</th><th class="num">ค่าบริการ</th></tr></thead>
+          <tbody id="repRows"></tbody>
+          <tfoot id="repFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
 
   <section class="card no-print history" id="history" hidden>
     <div class="card-head">
@@ -592,6 +676,7 @@ function refresh() {
   st.classList.toggle('dirty', dirty);
   if (cloud) showCloudInfo();
   renderHistory();
+  if (!$('report').hidden) renderReport();
 }
 
 sheet.addEventListener('input', e => {
@@ -700,15 +785,24 @@ async function remove(id) {
   refresh();
   toast('ลบแล้ว');
 }
+// เมนู "ฟอร์มใหม่": a saved slip → start the next one; a blank one → just show it;
+// one still being typed → ask (OK = start a new one, Cancel = carry on with it)
 $('btnNew').onclick = () => {
-  if (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก เริ่มใบใหม่เลยไหม?')) return;
+  const blank = !slip.id && !dirty;
+  if (blank || (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก\nกด OK เพื่อเริ่มใบใหม่ · กด Cancel เพื่อกลับไปกรอกใบเดิมต่อ'))) {
+    showView('form');
+    return;
+  }
   slip = freshSlip(); dirty = false;
-  showView('form');
   store(KEY_DRAFT, { slip, dirty });
   fill();
+  showView('form');
 };
-$('btnSave').onclick = () => save();
 $('btnPrint').onclick = async () => { if (await save()) { showView('form'); window.print(); } };
+// Ctrl+S saves without printing
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+});
 
 // every saved slip, newest first, grouped by month with a subtotal; filter by text and month
 const monthName = ym => thaiDate(ym + '-01', 'long').replace(/^1\s+/, '');
@@ -763,15 +857,93 @@ function renderHistory() {
 }
 $('histQ').addEventListener('input', renderHistory);
 $('histMonth').addEventListener('change', renderHistory);
-// sidebar views: the form, or the saved-slip history
+// sidebar views: the form, the saved-slip history, or the daily report
 function showView(v) {
   $('viewForm').hidden = v !== 'form';
   $('history').hidden = v !== 'history';
+  $('report').hidden = v !== 'report';
   document.querySelectorAll('.side-btn[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   window.scrollTo(0, 0);
   if (v === 'history') $('histQ').focus({ preventScroll: true });
+  if (v === 'report') renderReport();
 }
-document.querySelectorAll('.side-btn[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+document.querySelectorAll('.side-btn[data-view]:not(#btnNew)').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+// ---------- รายงานประจำวัน: every item sent on one day, across all slips ----------
+let repDate = todayIso();
+const trackUrl = code => 'https://track.thailandpost.co.th/?trackNumber=' + encodeURIComponent(code);
+function repLines() {
+  const day = slips.filter(s => s.date === repDate).sort((a, b) => String(a.no || '').localeCompare(String(b.no || ''), 'th', { numeric: true }));
+  const lines = [];
+  for (const s of day) {
+    (s.items || []).forEach(it => {
+      if (it.to || it.code || num(it.fee)) lines.push({ s, to: it.to, dest: it.dest, type: it.type, code: it.code, fee: num(it.fee) });
+    });
+    if (num(s.exFee) || num(s.exPieces)) {
+      const n = Math.round(num(s.exPieces));
+      lines.push({ s, to: `ไปรษณียภัณฑ์ธรรมดารวม Express${n ? ` ${n} ชิ้น` : ''}`, dest: '', type: 'ธรรมดา', code: '', fee: num(s.exFee) });
+    }
+  }
+  return { day, lines };
+}
+function renderReport() {
+  const el = $('repDate');
+  if (el !== document.activeElement) el.value = isoToDmy(repDate);
+  el.classList.remove('bad');
+  const { day, lines } = repLines();
+  const total = round2(day.reduce((a, s) => a + compute({ ...s, intl: s.intl || {} }).thisTime, 0));
+  const ems = lines.filter(l => l.type === 'EMS').length;
+  $('repHeading').textContent = `วันที่ ${thaiDate(repDate) || '-'}` + (day[0]?.company ? ` · บริษัท ${day[0].company} จำกัด` : '');
+  $('repStats').innerHTML = [
+    [day.length, 'ใบนำส่ง'], [lines.length, 'รายการ'], [ems, 'EMS'], [money(total) || '0', 'ค่าฝากส่งรวม (บาท)'],
+  ].map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join('');
+  $('repRows').innerHTML = lines.length ? lines.map((l, i) => `<tr>
+      <td class="num">${i + 1}</td>
+      <td class="slipno">${esc(l.s.book ? l.s.book + '/' : '')}${esc(l.s.no || '-')}</td>
+      <td class="to">${esc(l.to) || '-'}</td>
+      <td>${esc(l.dest)}</td>
+      <td>${esc(l.type)}</td>
+      <td>${l.code ? `<a class="trk" href="${trackUrl(l.code)}" target="_blank" rel="noopener">${esc(l.code)}</a>` : ''}</td>
+      <td class="num">${money(l.fee)}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="7" class="empty">ไม่มีรายการฝากส่งในวันที่ ${esc(thaiDate(repDate) || '-')}</td></tr>`;
+  $('repFoot').innerHTML = lines.length
+    ? `<tr><td colspan="6">รวม ${lines.length} รายการ</td><td class="num">${money(round2(lines.reduce((a, l) => a + l.fee, 0))) || '0'}</td></tr>` : '';
+}
+function setRepDate(iso) { repDate = iso; renderReport(); }
+const shiftDay = (iso, d) => { const t = new Date(iso + 'T00:00:00'); t.setDate(t.getDate() + d); t.setMinutes(t.getMinutes() - t.getTimezoneOffset()); return t.toISOString().slice(0, 10); };
+$('repPrev').onclick = () => setRepDate(shiftDay(repDate, -1));
+$('repNext').onclick = () => setRepDate(shiftDay(repDate, 1));
+$('repToday').onclick = () => setRepDate(todayIso());
+$('repDate').addEventListener('input', e => {
+  const iso = dmyToIso(e.target.value);
+  e.target.classList.toggle('bad', !!e.target.value.trim() && !iso);
+  if (iso && iso !== repDate) { repDate = iso; renderReport(); }
+});
+$('repDate').addEventListener('blur', () => renderReport());
+$('repCal').onclick = () => {
+  const p = $('repPick');
+  p.value = repDate;
+  try { p.showPicker(); } catch { p.focus(); p.click(); }
+};
+$('repPick').addEventListener('change', e => { if (e.target.value) setRepDate(e.target.value); });
+$('repCopy').onclick = async () => {
+  const { lines } = repLines();
+  const text = lines.filter(l => l.code || l.to).map(l => [l.to, l.code].filter(Boolean).join('\t')).join('\n');
+  if (!text) return toast('ไม่มีรายการให้คัดลอก', true);
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.append(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast(`คัดลอก ${lines.length} รายการแล้ว`);
+};
+$('repPrint').onclick = () => {
+  document.body.classList.add('printing-report');
+  window.print();
+};
+window.addEventListener('afterprint', () => document.body.classList.remove('printing-report'));
 $('histRows').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (b?.dataset.open) openSlip(b.dataset.open);

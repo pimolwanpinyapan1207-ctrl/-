@@ -231,7 +231,8 @@ table.f.carry { border-top: 0; }
 .right-col { display: grid; grid-template-rows: auto auto 1fr; padding-top: 26px; font-size: 14px; min-width: 0; }
 .words { border-bottom: 1px dotted var(--form-line); min-height: 40px; display: flex; align-items: end; gap: 8px; padding: 0 4px 2px; }
 .words b { font-weight: 400; color: var(--form-ink); }
-.words span { color: var(--fill-ink); }
+.words input { flex: 1; }
+.words input::placeholder { color: #9aa6b8; font-size: 13px; }
 .checked { text-align: right; padding: 4px 6px 0 0; white-space: nowrap; }
 .sign-area { display: grid; grid-template-columns: 116px 1fr; gap: 8px; align-items: end; margin-top: 10px; }
 .stamp { display: grid; justify-items: center; gap: 4px; font-weight: 700; }
@@ -429,7 +430,7 @@ table.f.carry { border-top: 0; }
         </table>
       </div>
       <div class="right-col">
-        <div class="words"><b>(ตัวอักษร)</b> <span id="words"></span></div>
+        <div class="words"><b>(ตัวอักษร)</b> <input data-f="words" placeholder="พิมพ์จำนวนเงินเป็นตัวหนังสือ" aria-label="จำนวนเงินตัวอักษร"></div>
         <div class="checked">ได้ตรวจสอบถูกต้องแล้ว</div>
         <div class="sign-area">
           <div class="stamp"><div class="stamp-box"></div>ตราประจำวัน</div>
@@ -648,7 +649,7 @@ function freshSlip() {
   return {
     id: null, date,
     book: last?.book || '', no: last ? nextNo(last.no) : '0001',
-    company: '', unit: '', permit: '', office: '', sender: '',
+    company: '', unit: '', permit: '', office: '', sender: '', words: '',
     round: String(sameMonth.length + 1),
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},
@@ -706,7 +707,6 @@ function refresh() {
     const typed = String(ov[el.dataset.ov] ?? '').trim();
     el.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[el.dataset.ov]);
   });
-  $('words').textContent = bahtText(c.thisTime);
   $('datePrint').textContent = thaiDate(slip.date);
   sheet.querySelectorAll('[data-k="code"]').forEach(el => el.classList.toggle('bad', !!el.value && !TRACK_RE.test(el.value)));
   const st = $('status');

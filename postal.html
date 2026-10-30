@@ -619,12 +619,14 @@ function compute(s) {
   const ov = s.ov || {};
   const pick = (key, auto) => (String(ov[key] ?? '').trim() !== '' ? round2(num(ov[key])) : auto);
   TYPES.forEach(t => { dom[t] = pick('dom:' + t, dom[t]); });
-  const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, round2(dom[t] + num(s.intl[t])))]));
+  // the รวมเงิน (1+2) column is typed only
+  const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, 0)]));
   const sumDom = pick('sumDom', round2(TYPES.reduce((a, t) => a + dom[t], 0)));
   const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0)));
-  const sumAll = pick('sumAll', round2(TYPES.reduce((a, t) => a + all[t], 0)));
-  // ยอดยกมา / ค่าฝากส่งครั้งนี้ / ยอดยกไป are typed only; thisTime falls back to ยอดรวม for words and lists
-  const thisTime = pick('thisTime', sumAll);
+  const sumAll = pick('sumAll', 0);
+  // ยอดยกมา / ค่าฝากส่งครั้งนี้ / ยอดยกไป are typed only; for the words and the lists, thisTime falls back
+  // to the typed รวมเงิน total, then to ในประเทศ + ต่างประเทศ
+  const thisTime = pick('thisTime', sumAll || round2(sumDom + sumIntl));
   const carryOut = pick('carryOut', 0);
   return { dom, all, pieces, grand, sumDom, sumIntl, sumAll, thisTime, carryOut };
 }
@@ -693,8 +695,9 @@ function refresh() {
   $('pieces').textContent = typedPieces ? `${typedPieces} ชิ้น` : '';
   // summary cells: show what was typed, otherwise the worked-out amount (never touch the one being typed in)
   const ov = slip.ov || {};
-  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: c.sumAll, thisTime: 0, carryOut: 0 };  // last two: typed only
-  TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = c.all[t]; });
+  // zero = left empty until typed (รวมเงิน column, ค่าฝากส่งครั้งนี้, ยอดยกไป)
+  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: 0, thisTime: 0, carryOut: 0 };
+  TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = 0; });
   sheet.querySelectorAll('[data-ov]').forEach(el => {
     if (el === document.activeElement) return;
     const typed = String(ov[el.dataset.ov] ?? '').trim();

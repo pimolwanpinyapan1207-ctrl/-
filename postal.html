@@ -52,45 +52,52 @@
 [hidden] { display: none !important; }
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
-.wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; }
+.wrap { max-width: 1000px; width: 100%; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 20px; align-content: start; }
 h1, h2 { font-family: var(--display); margin: 0; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* header: a blue band that stays on top while scrolling, with the slip's key facts and actions */
-header.top {
-  position: sticky; top: 10px; z-index: 30;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px;
-  padding: 16px 20px; border-radius: 16px; color: #fff;
-  background: linear-gradient(120deg, var(--hero-a), var(--hero-b));
-  box-shadow: 0 10px 30px -12px rgba(16, 40, 80, .45);
+/* app shell: a blue sidebar on the left (brand, views, actions, data tools), work area on the right */
+.app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+.side {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; z-index: 30;
+  display: flex; flex-direction: column; gap: 22px; padding: 22px 16px;
+  color: #fff; background: linear-gradient(170deg, var(--hero-a), var(--hero-b));
 }
-header.top::after {  /* faint postmark rings, purely decorative */
-  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: radial-gradient(circle at 92% -30%, rgba(255,255,255,.16) 0 70px, transparent 71px),
-              radial-gradient(circle at 92% -30%, transparent 0 92px, rgba(255,255,255,.10) 93px 95px, transparent 96px);
+.side::after {  /* faint postmark rings, purely decorative */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 110% 104%, transparent 0 90px, rgba(255,255,255,.08) 91px 93px, transparent 94px),
+              radial-gradient(circle at 110% 104%, rgba(255,255,255,.08) 0 64px, transparent 65px);
 }
-.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.logo { flex: none; width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: var(--hero-a); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
-header.top h1 { font-size: 1.6rem; line-height: 1.15; letter-spacing: .01em; }
-header.top .actions { position: relative; z-index: 1; }
-header.top .btn { display: inline-flex; align-items: center; gap: 6px; color: #fff; background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.35); }
-header.top .btn:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.6); }
-header.top .btn.primary { background: #fff; color: var(--hero-a); border-color: #fff; font-weight: 600; }
-header.top .btn.primary:hover { filter: none; background: #eef4fd; }
-header.top .btn svg { flex: none; }
-header.top .status { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.25); display: inline-flex; align-items: center; gap: 6px; }
-header.top .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #6ee7a0; }
-header.top .status.dirty::before { background: #fbbf4a; }
-@media (max-width: 640px) {
-  header.top { position: static; padding: 14px 16px; }
-  header.top h1 { font-size: 1.35rem; }
-  .logo { width: 42px; height: 42px; border-radius: 12px; }
-  header.top .actions { width: 100%; }
-  header.top .actions .btn { flex: 1; justify-content: center; white-space: nowrap; }
-  header.top .actions .btn.primary { flex-basis: 100%; order: 1; }
-  header.top .status { width: 100%; justify-content: center; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 4px; }
+.logo { flex: none; width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; background: #fff; color: var(--hero-a); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.brand h1 { font-size: 1.22rem; line-height: 1.2; }
+.brand small { display: block; font-size: .78rem; opacity: .75; margin-top: 1px; }
+.side-group { display: grid; gap: 6px; position: relative; z-index: 1; }
+.side-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; opacity: .6; padding: 0 10px; margin-bottom: 2px; }
+.side-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: #fff; font-weight: 500;
+}
+.side-btn svg { flex: none; opacity: .9; }
+.side-btn:hover { background: rgba(255,255,255,.12); }
+.side-btn.on { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.22); }
+.side-btn .count { margin-left: auto; font-size: .75rem; padding: 0 8px; border-radius: 999px; background: rgba(255,255,255,.2); }
+.side-btn.primary { background: #fff; color: var(--hero-a); font-weight: 600; justify-content: center; margin-top: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+.side-btn.primary:hover { background: #eef4fd; }
+.side .status { align-self: start; margin: 0 10px 2px; background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.22); display: inline-flex; align-items: center; gap: 6px; }
+.side .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #6ee7a0; }
+.side .status.dirty::before { background: #fbbf4a; }
+.side-foot { margin-top: auto; font-size: .76rem; opacity: .65; padding: 0 10px; line-height: 1.5; position: relative; z-index: 1; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; padding: 16px; gap: 14px; }
+  .side-group { grid-template-columns: 1fr 1fr; }
+  .side-label, .side-foot, .side .status, .side-btn.primary { grid-column: 1 / -1; }
+  .side .status { justify-self: start; }
+  .side-btn { padding: 8px 10px; font-size: .9rem; }
+  .side-foot { display: none; }
 }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; }
@@ -192,7 +199,7 @@ table.f.carry { border-top: 0; }
 .print-only { display: none; }
 
 /* ---------- history ---------- */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; align-content: start; }
 .card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .card-head h2 { font-size: 1.15rem; }
 .hist { width: 100%; border-collapse: collapse; font-size: .92rem; }
@@ -202,7 +209,6 @@ table.f.carry { border-top: 0; }
 .hist tr.current td { background: var(--accent-soft); }
 .hist .acts { display: flex; gap: 6px; justify-content: flex-end; }
 .hist-scroll { overflow-x: auto; }
-.history { scroll-margin-top: 110px; }
 .history .card-head .hint { margin-top: 2px; }
 .hist-tools { display: flex; flex-wrap: wrap; gap: 8px; }
 .hist-tools input, .hist-tools select { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 12px; }
@@ -224,7 +230,7 @@ table.f.carry { border-top: 0; }
 @page { size: A4 portrait; margin: 9mm 10mm; }
 @media print {
   html, body { background: #fff !important; }
-  .wrap { padding: 0; max-width: none; display: block; }
+  .app, .wrap { padding: 0; max-width: none; display: block; }
   .no-print { display: none !important; }
   .paper-scroll { overflow: visible; }
   .sheet { box-shadow: none; border-radius: 0; padding: 0; margin: 0 auto; width: 190mm; min-width: 0; }
@@ -241,28 +247,45 @@ table.f.carry { border-top: 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top no-print">
-    <div class="brand">
-      <div class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/><path d="M3.5 17.5 9.5 12M20.5 17.5 14.5 12"/></svg>
-      </div>
-      <div>
-        <h1>ใบนำส่งไปรษณีย์</h1>
-      </div>
+<div class="app">
+<aside class="side no-print" aria-label="เมนู">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/><path d="M3.5 17.5 9.5 12M20.5 17.5 14.5 12"/></svg>
     </div>
-    <div class="actions">
-      <span class="status" id="status">บันทึกแล้ว</span>
-      <button class="btn" id="btnHistory"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>รายการย้อนหลัง</button>
-      <button class="btn" id="btnNew"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>ใบใหม่</button>
-      <button class="btn" id="btnSave"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
-      <button class="btn primary" id="btnPrint"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>บันทึกและพิมพ์</button>
-    </div>
-  </header>
+    <div><h1>ใบนำส่งไปรษณีย์</h1><small>ชำระค่าบริการเป็นเงินเชื่อ</small></div>
+  </div>
+
+  <nav class="side-group" aria-label="หน้า">
+    <div class="side-label">เมนู</div>
+    <button class="side-btn on" data-view="form"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>ฟอร์มใบนำส่ง</button>
+    <button class="side-btn" data-view="history" id="btnHistory"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>รายการย้อนหลัง<span class="count" id="histCount">0</span></button>
+  </nav>
+
+  <div class="side-group">
+    <div class="side-label">ใบนี้</div>
+    <span class="status" id="status">บันทึกแล้ว</span>
+    <button class="side-btn" id="btnNew"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>ใบใหม่</button>
+    <button class="side-btn" id="btnSave"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
+    <button class="side-btn primary" id="btnPrint"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>บันทึกและพิมพ์</button>
+  </div>
+
+  <div class="side-group">
+    <div class="side-label">ข้อมูล</div>
+    <button class="side-btn" id="btnCsv"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M2 10h12M6 2v12"/></svg>ส่งออก CSV (Excel)</button>
+    <button class="side-btn" id="btnBackup"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M2.5 11v2.5h11V11"/></svg>สำรองข้อมูล</button>
+    <button class="side-btn" id="btnRestore"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5h11V11"/></svg>นำเข้าข้อมูลสำรอง</button>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+  </div>
+
+  <p class="side-foot">ข้อมูลเก็บในเบราว์เซอร์ของเครื่องนี้ · สำรองข้อมูลเป็นระยะ</p>
+</aside>
+
+<main class="wrap">
 
   <div class="notice no-print" id="storageNote" hidden>เบราว์เซอร์นี้บันทึกข้อมูลไม่ได้ (อาจเป็นโหมดไม่ระบุตัวตน) พิมพ์ได้ แต่ประวัติจะหายเมื่อปิดหน้า</div>
 
-  <div class="paper-scroll">
+  <div class="paper-scroll" id="viewForm">
   <div class="sheet" id="sheet">
     <div class="s-top">
       <label>เล่มที่ <span class="dot"><input data-f="book" aria-label="เล่มที่"></span></label>
@@ -337,17 +360,11 @@ table.f.carry { border-top: 0; }
   </div>
   </div>
 
-  <section class="card no-print history" id="history">
+  <section class="card no-print history" id="history" hidden>
     <div class="card-head">
       <div>
         <h2>รายการย้อนหลัง</h2>
         <p class="hint" id="histSummary"></p>
-      </div>
-      <div class="actions">
-        <button class="btn small" id="btnCsv">ส่งออก CSV (Excel)</button>
-        <button class="btn small" id="btnBackup">สำรองข้อมูล</button>
-        <button class="btn small" id="btnRestore">นำเข้าข้อมูลสำรอง</button>
-        <input type="file" id="restoreFile" accept="application/json,.json" hidden>
       </div>
     </div>
     <div class="hist-tools">
@@ -362,6 +379,7 @@ table.f.carry { border-top: 0; }
     </div>
     <p class="hint">เก็บทุกใบไว้ไม่จำกัด ในเบราว์เซอร์ของเครื่องนี้ · กด “สำรองข้อมูล” เป็นระยะ เพื่อเก็บไฟล์ไว้หรือย้ายไปเครื่องอื่น</p>
   </section>
+</main>
 </div>
 
 <ul class="suggest floating no-print" id="placeList" role="listbox" hidden></ul>
@@ -618,7 +636,7 @@ function openSlip(id) {
   dirty = false;
   store(KEY_DRAFT, { slip, dirty });
   fill();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showView('form');
 }
 function remove(id) {
   const s = slips.find(x => x.id === id);
@@ -631,11 +649,12 @@ function remove(id) {
 $('btnNew').onclick = () => {
   if (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก เริ่มใบใหม่เลยไหม?')) return;
   slip = freshSlip(); dirty = false;
+  showView('form');
   store(KEY_DRAFT, { slip, dirty });
   fill();
 };
 $('btnSave').onclick = save;
-$('btnPrint').onclick = () => { if (save()) window.print(); };
+$('btnPrint').onclick = () => { if (save()) { showView('form'); window.print(); } };
 
 // every saved slip, newest first, grouped by month with a subtotal; filter by text and month
 const monthName = ym => thaiDate(ym + '-01', 'long').replace(/^1\s+/, '');
@@ -660,6 +679,7 @@ function renderHistory() {
   }).filter(Boolean);
 
   const total = rows.reduce((a, r) => a + r.c.thisTime, 0);
+  $('histCount').textContent = slips.length;
   $('histSummary').textContent = !slips.length ? 'ยังไม่มีใบที่บันทึกไว้'
     : (q || sel.value ? `พบ ${rows.length} จาก ${slips.length} ใบ` : `ทั้งหมด ${slips.length} ใบ`) + ` · ค่าฝากส่งรวม ${money(round2(total)) || '0'} บาท`;
 
@@ -689,10 +709,15 @@ function renderHistory() {
 }
 $('histQ').addEventListener('input', renderHistory);
 $('histMonth').addEventListener('change', renderHistory);
-$('btnHistory').onclick = () => {
-  $('history').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  setTimeout(() => $('histQ').focus({ preventScroll: true }), 400);
-};
+// sidebar views: the form, or the saved-slip history
+function showView(v) {
+  $('viewForm').hidden = v !== 'form';
+  $('history').hidden = v !== 'history';
+  document.querySelectorAll('.side-btn[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  window.scrollTo(0, 0);
+  if (v === 'history') $('histQ').focus({ preventScroll: true });
+}
+document.querySelectorAll('.side-btn[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 $('histRows').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (b?.dataset.open) openSlip(b.dataset.open);

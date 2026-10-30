@@ -192,9 +192,9 @@ table.f.carry { border-top: 0; }
 .sigs { display: grid; gap: 30px; text-align: center; }
 .sigs div { line-height: 1.7; }
 .sigline { display: inline-block; width: 120px; border-bottom: 1px dotted var(--form-line); vertical-align: bottom; }
-.signame { display: inline-flex; align-items: center; gap: 2px; }
-.signame input { width: 165px; font-size: 14px; padding: 0 2px; }
-.signame input::placeholder { color: #9aa6b8; font-size: 12.5px; }
+.sigline.sender { width: 138px; }
+.sigline.sender input { font-size: 14px; padding: 0 1px; }
+.sigline.sender input::placeholder { color: #9aa6b8; font-size: 12.5px; }
 
 .print-only { display: none; }
 
@@ -351,7 +351,7 @@ table.f.carry { border-top: 0; }
         <div class="sign-area">
           <div class="stamp"><div class="stamp-box"></div>ตราประจำวัน</div>
           <div class="sigs">
-            <div>ลงชื่อ <span class="sigline"></span><br><span class="signame">(<input data-f="sender" class="ctr" placeholder="พิมพ์ชื่อผู้ส่ง" aria-label="ชื่อผู้รับผิดชอบในการฝากส่ง">)</span><br>ผู้รับผิดชอบในการฝากส่ง</div>
+            <div>ลงชื่อ <span class="sigline sender"><input data-f="sender" class="ctr" placeholder="พิมพ์ชื่อผู้ส่ง" aria-label="ชื่อผู้รับผิดชอบในการฝากส่ง"></span><br>ผู้รับผิดชอบในการฝากส่ง</div>
             <div>ลงชื่อ <span class="sigline"></span><br>ได้ตรวจสอบและรับฝากถูกต้องแล้ว</div>
           </div>
         </div>
@@ -842,7 +842,7 @@ const normTh = s => String(s || '').toLowerCase().replace(/\s+/g, '');
 const bareTh = s => s.replace(/^สกร\.?\s*(ประจำ|ระดับ)?\s*/, '').replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|เขต|ข\.)/, '');
 function fitText(el) {  // shrink long names so they still fit (and print) inside the cell
   el.style.fontSize = '';
-  for (let size = parseFloat(getComputedStyle(el).fontSize); el.scrollWidth > el.clientWidth + 1 && size > 11; size -= 0.5) el.style.fontSize = size + 'px';
+  for (let size = parseFloat(getComputedStyle(el).fontSize); el.scrollWidth > el.clientWidth + 1 && size > 10.5; size -= 0.5) el.style.fontSize = size + 'px';
 }
 function closePlaces() { plList.hidden = true; plActive = -1; if (plInput) plInput.setAttribute('aria-expanded', 'false'); }
 function showPlaces(inp) {

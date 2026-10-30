@@ -463,7 +463,7 @@ table.f.carry { border-top: 0; }
     </div>
     <div class="hist-tools">
       <input type="search" id="histQ" placeholder="ค้นหา: ผู้รับ, จังหวัด, เลขพัสดุ, เลขที่ใบ…" aria-label="ค้นหารายการย้อนหลัง" autocomplete="off">
-      <select id="histMonth" aria-label="เลือกเดือน"><option value="">ทุกเดือน</option></select>
+      <select id="histMonth" aria-label="ช่วงเวลา"><option value="3">3 เดือน</option><option value="6">6 เดือน</option><option value="" selected>ทุกเดือน</option></select>
     </div>
     <div class="hist-scroll">
       <table class="hist">
@@ -821,17 +821,20 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save().then(ok => { if (ok) startFresh(); }); }
 });
 
-// every saved slip, newest first, grouped by month with a subtotal; filter by text and month
+// every saved slip, newest first, grouped by month with a subtotal; filter by text and period
 const monthName = ym => thaiDate(ym + '-01', 'long').replace(/^1\s+/, '');
+function shiftMonths(iso, n) {  // same day n months away, clamped to the month's last day
+  const [y, m, d] = iso.split('-').map(Number);
+  const t = new Date(y, m - 1 + n, 1);
+  const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
+}
 function renderHistory() {
-  const q = normTh($('histQ').value), month = $('histMonth').value;
-  // month menu: every month that has a slip
-  const months = [...new Set(slips.map(s => (s.date || '').slice(0, 7)).filter(Boolean))].sort().reverse();
-  const sel = $('histMonth');
-  const want = ['<option value="">ทุกเดือน</option>', ...months.map(m => `<option value="${m}">${esc(monthName(m))}</option>`)].join('');
-  if (sel.dataset.opts !== want) { sel.innerHTML = want; sel.dataset.opts = want; sel.value = months.includes(month) ? month : ''; }
+  const q = normTh($('histQ').value), sel = $('histMonth');
+  // period: last 3 or 6 months counted back from today, or everything ("")
+  const since = sel.value ? shiftMonths(todayIso(), -Number(sel.value)) : '';
 
-  const rows = slips.slice().sort(byNewest).filter(s => !sel.value || (s.date || '').startsWith(sel.value)).map(s => {
+  const rows = slips.slice().sort(byNewest).filter(s => !since || (s.date || '') >= since).map(s => {
     const items = (s.items || []).filter(it => it.to || it.code || num(it.fee));
     let found = '';
     if (q) {

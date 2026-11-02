@@ -387,7 +387,7 @@ table.f.carry { border-top: 0; }
       </div>
       <div class="title">ใบนำส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินสินเชื่อ</div>
       <div class="fields">
-        <span>หน่วยงาน</span><span class="dot"><input data-f="unit" aria-label="หน่วยงาน"></span>
+        <span>หน่วยงาน</span><span class="dot combo"><input data-f="unit" id="unitInput" aria-label="หน่วยงาน" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="unitList"><ul class="suggest no-print" id="unitList" role="listbox" hidden></ul></span>
         <span>ใบอนุญาตเลขที่</span><span class="dot"><input data-f="permit" aria-label="ใบอนุญาตเลขที่"></span>
       </div>
       <div class="subtitle">ได้ฝากส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินเชื่อดังรายการต่อไปนี้</div>
@@ -1089,46 +1089,49 @@ $('btnCsv').onclick = () => {
   download(`ใบนำส่ง-${stamp()}.csv`, '﻿' + lines.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
 };
 
-// ---------- company picker: suggestions pop up while typing ----------
-const coInput = $('companyInput'), coList = $('companyList');
-let coActive = -1;
-function showCompanies() {
-  const q = coInput.value.trim();
-  const opts = COMPANIES.filter(c => c.includes(q) && c !== q);
-  coActive = -1;
-  coList.innerHTML = opts.map(c => {
-    const i = q ? c.indexOf(q) : -1;
-    const label = i < 0 ? esc(c) : esc(c.slice(0, i)) + '<mark>' + esc(q) + '</mark>' + esc(c.slice(i + q.length));
-    return `<li role="option" data-v="${esc(c)}">${label}</li>`;
-  }).join('');
-  coList.hidden = !opts.length;
-  coInput.setAttribute('aria-expanded', String(!coList.hidden));
+// ---------- company / หน่วยงาน pickers: suggestions pop up while typing, any text can still be typed ----------
+function comboPicker(input, list, choices) {
+  let active = -1;
+  function show() {
+    const q = input.value.trim();
+    const opts = choices.filter(c => c.includes(q) && c !== q);
+    active = -1;
+    list.innerHTML = opts.map(c => {
+      const i = q ? c.indexOf(q) : -1;
+      const label = i < 0 ? esc(c) : esc(c.slice(0, i)) + '<mark>' + esc(q) + '</mark>' + esc(c.slice(i + q.length));
+      return `<li role="option" data-v="${esc(c)}">${label}</li>`;
+    }).join('');
+    list.hidden = !opts.length;
+    input.setAttribute('aria-expanded', String(!list.hidden));
+  }
+  function hide() { list.hidden = true; input.setAttribute('aria-expanded', 'false'); }
+  function pick(v) {
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    hide();
+  }
+  input.addEventListener('focus', show);
+  input.addEventListener('input', e => { if (e.isTrusted) show(); });
+  input.addEventListener('blur', () => setTimeout(hide, 120));
+  input.addEventListener('keydown', e => {
+    const items = [...list.children];
+    if (list.hidden || !items.length) { if (e.key === 'ArrowDown') show(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((li, i) => li.classList.toggle('active', i === active));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      pick((items[active] || items[0]).dataset.v);
+    } else if (e.key === 'Escape') hide();
+  });
+  list.addEventListener('mousedown', e => {
+    const li = e.target.closest('li');
+    if (li) { e.preventDefault(); pick(li.dataset.v); }
+  });
 }
-function hideCompanies() { coList.hidden = true; coInput.setAttribute('aria-expanded', 'false'); }
-function pickCompany(v) {
-  coInput.value = v;
-  coInput.dispatchEvent(new Event('input', { bubbles: true }));
-  hideCompanies();
-}
-coInput.addEventListener('focus', showCompanies);
-coInput.addEventListener('input', e => { if (e.isTrusted) showCompanies(); });
-coInput.addEventListener('blur', () => setTimeout(hideCompanies, 120));
-coInput.addEventListener('keydown', e => {
-  const items = [...coList.children];
-  if (coList.hidden || !items.length) { if (e.key === 'ArrowDown') showCompanies(); return; }
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    coActive = (coActive + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
-    items.forEach((li, i) => li.classList.toggle('active', i === coActive));
-  } else if (e.key === 'Enter') {
-    e.preventDefault();
-    pickCompany((items[coActive] || items[0]).dataset.v);
-  } else if (e.key === 'Escape') hideCompanies();
-});
-coList.addEventListener('mousedown', e => {
-  const li = e.target.closest('li');
-  if (li) { e.preventDefault(); pickCompany(li.dataset.v); }
-});
+comboPicker($('companyInput'), $('companyList'), COMPANIES);
+comboPicker($('unitInput'), $('unitList'), COMPANIES);
 
 // ---------- date: typed วัน/เดือน/ปี, or picked from the calendar ----------
 const dateText = $('dateText'), datePick = $('datePick');

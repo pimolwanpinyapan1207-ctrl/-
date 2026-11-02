@@ -88,6 +88,8 @@ button { cursor: pointer; }
 .side-btn.primary:hover { background: #eef4fd; }
 .side-btn.secondary { justify-content: center; border-color: rgba(255,255,255,.55); background: rgba(255,255,255,.1); font-weight: 600; }
 .side-btn.secondary:hover { background: rgba(255,255,255,.2); border-color: #fff; }
+.side-btn.clear { justify-content: center; border-color: rgba(255,190,185,.6); color: #ffe1de; }
+.side-btn.clear:hover { background: rgba(220,60,50,.3); border-color: #ffb4ad; color: #fff; }
 .side .status { align-self: start; margin: 0 10px 2px; background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.22); display: inline-flex; align-items: center; gap: 6px; }
 .side .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #6ee7a0; }
 .side .status.dirty::before { background: #fbbf4a; }
@@ -141,7 +143,7 @@ a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text
   .app { grid-template-columns: 1fr; }
   .side { position: static; height: auto; padding: 16px; gap: 14px; }
   .side-group { grid-template-columns: 1fr 1fr; }
-  .side-label, .side-foot, .side .status, .side-btn.primary, .side-btn.secondary { grid-column: 1 / -1; }
+  .side-label, .side-foot, .side .status, .side-btn.primary, .side-btn.secondary, .side-btn.clear { grid-column: 1 / -1; }
   .side .status { justify-self: start; }
   .side-btn { padding: 8px 10px; font-size: .9rem; }
   .side-foot { display: none; }
@@ -344,6 +346,7 @@ table.f.carry { border-top: 0; }
     <button class="side-btn" data-view="report" id="btnReport"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
     <button class="side-btn primary" id="btnSave"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
     <button class="side-btn secondary" id="btnPrint"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>พิมพ์</button>
+    <button class="side-btn clear" id="btnClear"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9M6.8 7v4.5M9.2 7v4.5"/></svg>ลบข้อมูล</button>
   </nav>
 
   <div class="side-group">
@@ -830,6 +833,15 @@ $('btnNew').onclick = () => {
   slip = freshSlip(); dirty = false;
   fill();
   showView('form');
+};
+// "ลบข้อมูล" throws away what is typed on screen without saving; slips already saved stay in the list
+$('btnClear').onclick = () => {
+  if (dirty && !confirm('ลบข้อมูลที่กรอกในฟอร์มนี้ทั้งหมด (ไม่บันทึก)?')) return;
+  slip = freshSlip(); dirty = false;
+  fill();
+  showView('form');
+  $('companyInput').focus({ preventScroll: true });
+  toast('ล้างฟอร์มแล้ว');
 };
 // after a save the page moves on to a blank form, ready for the next set
 function startFresh() {

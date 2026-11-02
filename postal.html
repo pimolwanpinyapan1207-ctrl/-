@@ -659,10 +659,9 @@ function freshSlip() {
 
 // ---------- state ----------
 let slips = load(KEY_SLIPS, []);
-let slip, dirty = false;
-const draft = load(KEY_DRAFT, null);
-slip = draft?.slip || freshSlip();
-dirty = !!draft?.dirty;
+// every visit opens a blank form; an unsaved draft is not kept between visits
+let slip = freshSlip(), dirty = false;
+try { localStorage.removeItem(KEY_DRAFT); } catch {}
 
 // ---------- build the form ----------
 const $ = id => document.getElementById(id);
@@ -740,7 +739,6 @@ sheet.addEventListener('input', e => {
     }
   } else return;
   dirty = true;
-  store(KEY_DRAFT, { slip, dirty });
   refresh();
 });
 // leaving a summary cell tidies its number (it is skipped while being typed in)
@@ -793,7 +791,6 @@ async function save() {
   if (i >= 0) slips[i] = copy; else slips.push(copy);
   store(KEY_SLIPS, slips);
   dirty = false;
-  store(KEY_DRAFT, { slip, dirty });
   refresh();
   toast(msg, warn);
   return true;
@@ -806,7 +803,6 @@ function openSlip(id) {
   slip.items = Array.from({ length: ROWS }, (_, i) => ({ ...blankItem(), ...(slip.items[i] || {}) }));
   slip.intl = slip.intl || {};
   dirty = false;
-  store(KEY_DRAFT, { slip, dirty });
   fill();
   showView('form');
 }
@@ -832,14 +828,12 @@ $('btnNew').onclick = () => {
     return;
   }
   slip = freshSlip(); dirty = false;
-  store(KEY_DRAFT, { slip, dirty });
   fill();
   showView('form');
 };
 // after a save the page moves on to a blank form, ready for the next set
 function startFresh() {
   slip = freshSlip(); dirty = false;
-  store(KEY_DRAFT, { slip, dirty });
   fill();
   showView('form');
   $('companyInput').focus({ preventScroll: true });
@@ -1136,7 +1130,6 @@ function setDate(iso) {
   if (iso === slip.date) return;
   slip.date = iso;
   dirty = true;
-  store(KEY_DRAFT, { slip, dirty });
   refresh();
 }
 dateText.addEventListener('input', () => {

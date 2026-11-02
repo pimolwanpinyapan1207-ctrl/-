@@ -637,20 +637,15 @@ function compute(s) {
   const carryOut = pick('carryOut', 0);
   return { dom, all, pieces, grand, sumDom, sumIntl, sumAll, thisTime, carryOut };
 }
-function nextNo(no) {
-  const m = String(no || '').match(/^(.*?)(\d+)$/);
-  if (!m) return '';
-  return m[1] + String(+m[2] + 1).padStart(m[2].length, '0');
-}
 const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.savedAt || 0) - (a.savedAt || 0);
 
 function freshSlip() {
   const last = slips.slice().sort(byNewest)[0];
   const date = todayIso();
-  // a new form starts blank; only the date and the running number are filled in (ครั้งที่ is typed by hand)
+  // a new form starts blank; only the date and เล่มที่ are filled in (เลขที่ and ครั้งที่ are typed by hand)
   return {
     id: null, date,
-    book: last?.book || '', no: last ? nextNo(last.no) : '0001',
+    book: last?.book || '', no: '',
     company: '', unit: '', permit: '', office: '', sender: '', words: '',
     round: '',
     items: Array.from({ length: ROWS }, blankItem),

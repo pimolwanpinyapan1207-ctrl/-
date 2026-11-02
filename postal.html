@@ -530,7 +530,7 @@ const PLACES = [
     return { name: n, text: (khet ? 'สกร.เขต' : 'สกร.ระดับอำเภอ') + n, sub: (khet ? 'เขต · ' : 'อำเภอ · ') + p, full: (khet ? 'เขต' : 'อำเภอ') + n + ' ' + p, prov: p, zip: THAI_ZIP.d[di], kind: 1 };
   }).filter(x => x.zip),  // drops two เทศบาลตำบล rows in the source data that are not real อำเภอ
 ];
-const COMPANIES = ['อมตะ', 'ยงสวัสดิ์', 'โชคเจริญ', 'ไทยอักษร', 'ฟีนิกซ์'];
+const COMPANIES = ['ยงสวัสดิ์', 'อมตะ', 'โชคเจริญ', 'ไทยอักษร', 'ฟีนิกซ์'];
 const PERMITS = ['3/2559', '4/2559', '5/2563', '7/2564', '8/2564'];
 const TYPES = ['ลงทะเบียน', 'รับรอง', 'EMS', 'รับประกัน', 'พัสดุฯ', 'พกง.', 'ธรรมดา'];
 const ROWS = 10;

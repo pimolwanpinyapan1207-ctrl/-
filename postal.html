@@ -1122,8 +1122,8 @@ function comboPicker(input, list, choices) {
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
       items.forEach((li, i) => li.classList.toggle('active', i === active));
     } else if (e.key === 'Enter') {
-      e.preventDefault();
-      pick((items[active] || items[0]).dataset.v);
+      // Enter takes a choice only when one was highlighted with the arrow keys; otherwise the typed text stays as it is
+      if (items[active]) { e.preventDefault(); pick(items[active].dataset.v); } else hide();
     } else if (e.key === 'Escape') hide();
   });
   list.addEventListener('mousedown', e => {

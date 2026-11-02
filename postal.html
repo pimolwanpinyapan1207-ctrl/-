@@ -646,14 +646,13 @@ const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.save
 
 function freshSlip() {
   const last = slips.slice().sort(byNewest)[0];
-  const date = todayIso(), month = date.slice(0, 7);
-  const sameMonth = slips.filter(s => (s.date || '').slice(0, 7) === month).sort(byNewest);
-  // a new form starts blank; only the date, the running number and ครั้งที่ are filled in
+  const date = todayIso();
+  // a new form starts blank; only the date and the running number are filled in (ครั้งที่ is typed by hand)
   return {
     id: null, date,
     book: last?.book || '', no: last ? nextNo(last.no) : '0001',
     company: '', unit: '', permit: '', office: '', sender: '', words: '',
-    round: String(sameMonth.length + 1),
+    round: '',
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},
     carryIn: '',  // typed by hand, not carried over

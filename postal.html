@@ -126,7 +126,6 @@ button { cursor: pointer; }
 .rep-date input { border: 0; background: transparent; width: 120px; padding: 4px 6px; font-weight: 600; }
 .rep-date .calbtn { color: var(--ink); }
 .rep-date .calbtn:hover { background: var(--accent-soft); }
-#repPick { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
 .rep-title h3 { margin: 0; font-family: var(--display); font-size: 1.1rem; }
 .rep-title p { margin: 2px 0 0; color: var(--muted); }
 .rep-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
@@ -206,7 +205,6 @@ a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text
 .datebox { display: flex; align-items: center; position: relative; }
 .calbtn { border: 0; background: none; color: var(--form-ink); padding: 2px 4px; border-radius: 4px; display: inline-flex; }
 .calbtn:hover { background: #e4ecf7; }
-#datePick { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
 .fields .round { display: flex; align-items: end; gap: 6px; white-space: nowrap; }
 .fields .round .dot { width: 70px; }
 .fields .round input { text-align: center; }
@@ -284,6 +282,19 @@ table.f.carry { border-top: 0; }
 .mp-grid button.now { border-color: var(--accent); }
 .mp-grid button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .mp-grid button.on small { color: var(--accent-ink); opacity: .85; }
+/* Thai day calendar for the date fields (the browser's own picker shows English) */
+.tcal {
+  position: fixed; z-index: 60; width: 292px; padding: 12px; font-family: var(--body);
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 34px -10px rgba(16,24,40,.3);
+}
+.tcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.tcal-wd span { font-size: .78rem; color: var(--muted); padding: 2px 0 4px; }
+.tcal-wd span:first-child { color: var(--bad); }
+.tcal-grid button { border: 1px solid transparent; background: none; border-radius: 8px; height: 34px; padding: 0; }
+.tcal-grid button:hover { background: var(--accent-soft); }
+.tcal-grid button.now { border-color: var(--accent); }
+.tcal-grid button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.tcal-foot { display: flex; justify-content: center; margin-top: 8px; }
 .hist tr.month td { background: var(--bg); font-weight: 600; font-size: .85rem; color: var(--muted); padding-top: 10px; }
 .hist tr.month td.num { color: var(--ink); }
 .hist .who { max-width: 260px; }
@@ -383,7 +394,7 @@ table.f.carry { border-top: 0; }
       <div class="company">บริษัท <span class="dot combo"><input data-f="company" id="companyInput" aria-label="ชื่อบริษัท" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="companyList"><ul class="suggest no-print" id="companyList" role="listbox" hidden></ul></span> จำกัด</div>
       <div class="fields">
         <span>วัน/เดือน/ปี</span>
-        <span class="dot"><span class="datebox screen-only"><input id="dateText" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="calBtn" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button><input type="date" id="datePick" tabindex="-1" aria-hidden="true"></span><span class="print-only" id="datePrint"></span></span>
+        <span class="dot"><span class="datebox screen-only"><input id="dateText" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="calBtn" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button></span><span class="print-only" id="datePrint"></span></span>
       </div>
       <div class="title">ใบนำส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินสินเชื่อ</div>
       <div class="fields">
@@ -462,7 +473,7 @@ table.f.carry { border-top: 0; }
     <div class="card">
       <div class="rep-bar no-print">
         <button class="btn small" id="repPrev" aria-label="วันก่อนหน้า">‹ วันก่อน</button>
-        <span class="datebox rep-date"><input id="repDate" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ของรายงาน (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="repCal" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button><input type="date" id="repPick" tabindex="-1" aria-hidden="true"></span>
+        <span class="datebox rep-date"><input id="repDate" class="ctr" inputmode="numeric" placeholder="วว/ดด/ปปปป" autocomplete="off" aria-label="วันที่ของรายงาน (วัน/เดือน/ปี พ.ศ.)"><button type="button" class="calbtn" id="repCal" aria-label="เลือกวันที่จากปฏิทิน" title="เลือกจากปฏิทิน"><svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6.5h13M5 1v3M11 1v3" stroke="currentColor" stroke-width="1.3"/></svg></button></span>
         <button class="btn small" id="repNext" aria-label="วันถัดไป">วันถัดไป ›</button>
         <button class="btn small" id="repToday">วันนี้</button>
       </div>
@@ -515,6 +526,16 @@ table.f.carry { border-top: 0; }
 </div>
 
 <ul class="suggest floating no-print" id="placeList" role="listbox" hidden></ul>
+<div class="tcal no-print" id="tcal" role="dialog" aria-label="ปฏิทิน" hidden>
+  <div class="mp-head">
+    <button type="button" class="mp-nav" id="tcalPrev" aria-label="เดือนก่อน">‹</button>
+    <b id="tcalTitle"></b>
+    <button type="button" class="mp-nav" id="tcalNext" aria-label="เดือนถัดไป">›</button>
+  </div>
+  <div class="tcal-grid tcal-wd"><span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span></div>
+  <div class="tcal-grid" id="tcalDays"></div>
+  <div class="tcal-foot"><button type="button" class="btn" id="tcalToday">วันนี้</button></div>
+</div>
 <div class="toast no-print" id="toast" role="status" aria-live="polite"></div>
 <script>
 // ผู้รับ = สกร. (สำนักงาน/ศูนย์ส่งเสริมการเรียนรู้) ประจำจังหวัด / ระดับอำเภอ ทั่วประเทศ, same names as tracker.html.
@@ -1021,12 +1042,7 @@ $('repDate').addEventListener('input', e => {
   if (iso && iso !== repDate) { repDate = iso; renderReport(); }
 });
 $('repDate').addEventListener('blur', () => renderReport());
-$('repCal').onclick = () => {
-  const p = $('repPick');
-  p.value = repDate;
-  try { p.showPicker(); } catch { p.focus(); p.click(); }
-};
-$('repPick').addEventListener('change', e => { if (e.target.value) setRepDate(e.target.value); });
+$('repCal').onclick = () => openCalendar($('repCal'), repDate, setRepDate);
 $('repCopy').onclick = async () => {
   const { lines } = repLines();
   const text = lines.filter(l => l.code || l.to).map(l => [l.to, l.code].filter(Boolean).join('\t')).join('\n');
@@ -1137,7 +1153,7 @@ comboPicker($('unitInput'), $('unitList'), COMPANIES);
 comboPicker($('permitInput'), $('permitList'), PERMITS);
 
 // ---------- date: typed วัน/เดือน/ปี, or picked from the calendar ----------
-const dateText = $('dateText'), datePick = $('datePick');
+const dateText = $('dateText');
 function setDate(iso) {
   if (iso === slip.date) return;
   slip.date = iso;
@@ -1154,16 +1170,52 @@ dateText.addEventListener('blur', () => {  // tidy to dd/mm/yyyy, or put back th
   if (dmyToIso(dateText.value) || !dateText.value.trim()) dateText.value = isoToDmy(slip.date);
   dateText.classList.toggle('bad', !!dateText.value.trim() && !dmyToIso(dateText.value));
 });
-$('calBtn').addEventListener('click', () => {
-  datePick.value = slip.date || todayIso();
-  try { datePick.showPicker(); } catch { datePick.focus(); datePick.click(); }
-});
-datePick.addEventListener('change', () => {
-  if (!datePick.value) return;
-  setDate(datePick.value);
-  dateText.value = isoToDmy(datePick.value);
+$('calBtn').addEventListener('click', () => openCalendar($('calBtn'), slip.date, iso => {
+  setDate(iso);
+  dateText.value = isoToDmy(iso);
   dateText.classList.remove('bad');
+}));
+
+// ---------- Thai calendar popup, shared by the form date and the daily report date ----------
+const TH_MONTHS_LONG = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+const tcal = $('tcal');
+let tcalYm = null, tcalSel = '', tcalPick = null, tcalAnchor = null;
+const ymd = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+function drawCalendar() {
+  const [y, m] = tcalYm;
+  $('tcalTitle').textContent = `${TH_MONTHS_LONG[m]} ${y + 543}`;
+  const lead = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), today = todayIso();
+  let html = '<span></span>'.repeat(lead);
+  for (let d = 1; d <= days; d++) {
+    const iso = ymd(y, m, d);
+    const cls = [iso === tcalSel && 'on', iso === today && 'now'].filter(Boolean).join(' ');
+    html += `<button type="button" data-d="${iso}" class="${cls}" aria-label="${esc(thaiDate(iso))}">${d}</button>`;
+  }
+  $('tcalDays').innerHTML = html;
+}
+function openCalendar(anchor, iso, onPick) {
+  if (!tcal.hidden && tcalAnchor === anchor) return closeCalendar();
+  const base = iso || todayIso();
+  tcalYm = [+base.slice(0, 4), +base.slice(5, 7) - 1];
+  tcalSel = iso || ''; tcalPick = onPick; tcalAnchor = anchor;
+  drawCalendar();
+  tcal.hidden = false;
+  const r = anchor.getBoundingClientRect(), w = tcal.offsetWidth, h = tcal.offsetHeight;
+  tcal.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+  tcal.style.top = (r.bottom + 6 + h > innerHeight && r.top - 6 - h > 0 ? r.top - 6 - h : r.bottom + 6) + 'px';
+}
+function closeCalendar() { tcal.hidden = true; tcalAnchor = null; }
+function stepMonth(n) { const t = new Date(tcalYm[0], tcalYm[1] + n, 1); tcalYm = [t.getFullYear(), t.getMonth()]; drawCalendar(); }
+$('tcalPrev').onclick = () => stepMonth(-1);
+$('tcalNext').onclick = () => stepMonth(1);
+$('tcalToday').onclick = () => { const p = tcalPick; closeCalendar(); p(todayIso()); };
+$('tcalDays').addEventListener('click', e => {
+  const b = e.target.closest('button[data-d]');
+  if (b) { const p = tcalPick; closeCalendar(); p(b.dataset.d); }
 });
+document.addEventListener('mousedown', e => { if (!tcal.hidden && !tcal.contains(e.target) && !tcalAnchor?.contains(e.target)) closeCalendar(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !tcal.hidden) closeCalendar(); });
+addEventListener('scroll', () => { if (!tcal.hidden) closeCalendar(); }, true);
 
 // ---------- recipient picker: search สกร. by province / district name ----------
 const plList = $('placeList');

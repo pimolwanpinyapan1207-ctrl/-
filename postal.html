@@ -122,6 +122,12 @@ button { cursor: pointer; }
 
 /* daily report */
 .rep-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rep-cos { display: flex; flex-wrap: wrap; gap: 6px; }
+.rep-cos button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; }
+.rep-cos button:hover { border-color: var(--accent); }
+.rep-cos button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.rep-cos button small { font-size: .75rem; min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--surface); color: var(--muted); }
+.rep-cos button.on small { background: rgba(255,255,255,.25); color: var(--accent-ink); }
 .rep-date { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 2px 4px; }
 .rep-date input { border: 0; background: transparent; width: 120px; padding: 4px 6px; font-weight: 600; }
 .rep-date .calbtn { color: var(--ink); }
@@ -477,6 +483,7 @@ table.f.carry { border-top: 0; }
         <button class="btn small" id="repNext" aria-label="วันถัดไป">วันถัดไป ›</button>
         <button class="btn small" id="repToday">วันนี้</button>
       </div>
+      <div class="rep-cos no-print" id="repCos" role="tablist" aria-label="เลือกบริษัท"></div>
       <div class="rep-title print-block">
         <h3>รายงานการฝากส่งไปรษณีย์ประจำวัน</h3>
         <p id="repHeading"></p>
@@ -992,9 +999,11 @@ document.querySelectorAll('.side-btn[data-view]:not(#btnNew)').forEach(b => b.ad
 
 // ---------- รายงานประจำวัน: every item sent on one day, across all slips ----------
 let repDate = todayIso();
+let repCo = '';  // '' = every company; otherwise one company's slips only
 const trackUrl = code => 'https://track.thailandpost.co.th/?trackNumber=' + encodeURIComponent(code);
+const coOf = s => String(s.company || '').trim();
 function repLines() {
-  const day = slips.filter(s => s.date === repDate).sort((a, b) => String(a.no || '').localeCompare(String(b.no || ''), 'th', { numeric: true }));
+  const day = slips.filter(s => s.date === repDate && (!repCo || coOf(s) === repCo)).sort((a, b) => String(a.no || '').localeCompare(String(b.no || ''), 'th', { numeric: true }));
   const lines = [];
   for (const s of day) {
     (s.items || []).forEach(it => {
@@ -1011,10 +1020,14 @@ function renderReport() {
   const el = $('repDate');
   if (el !== document.activeElement) el.value = isoToDmy(repDate);
   el.classList.remove('bad');
+  const onDay = slips.filter(s => s.date === repDate);
+  $('repCos').innerHTML = [['', 'ทุกบริษัท', onDay.length], ...COMPANIES.map(c => [c, c, onDay.filter(s => coOf(s) === c).length])]
+    .map(([v, label, n]) => `<button type="button" role="tab" data-co="${esc(v)}" class="${v === repCo ? 'on' : ''}" aria-selected="${v === repCo}">${esc(label)}<small>${n}</small></button>`).join('');
   const { day, lines } = repLines();
   const total = round2(day.reduce((a, s) => a + compute({ ...s, intl: s.intl || {} }).thisTime, 0));
   const ems = lines.filter(l => l.type === 'EMS').length;
-  $('repHeading').textContent = `วันที่ ${thaiDate(repDate) || '-'}` + (day[0]?.company ? ` · บริษัท ${day[0].company} จำกัด` : '');
+  const co = repCo || (day.length && day.every(s => coOf(s) === coOf(day[0])) ? coOf(day[0]) : '');
+  $('repHeading').textContent = `วันที่ ${thaiDate(repDate) || '-'}` + (co ? ` · บริษัท ${co} จำกัด` : '');
   $('repStats').innerHTML = [
     [day.length, 'ใบนำส่ง'], [lines.length, 'รายการ'], [ems, 'EMS'], [money(total) || '0', 'ค่าฝากส่งรวม (บาท)'],
   ].map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join('');
@@ -1027,7 +1040,7 @@ function renderReport() {
       <td>${l.code ? `<a class="trk" href="${trackUrl(l.code)}" target="_blank" rel="noopener">${esc(l.code)}</a>` : ''}</td>
       <td class="num">${money(l.fee)}</td>
     </tr>`).join('')
-    : `<tr><td colspan="7" class="empty">ไม่มีรายการฝากส่งในวันที่ ${esc(thaiDate(repDate) || '-')}</td></tr>`;
+    : `<tr><td colspan="7" class="empty">ไม่มีรายการฝากส่ง${repCo ? `ของ ${esc(repCo)} ` : ''}ในวันที่ ${esc(thaiDate(repDate) || '-')}</td></tr>`;
   $('repFoot').innerHTML = lines.length
     ? `<tr><td colspan="6">รวม ${lines.length} รายการ</td><td class="num">${money(round2(lines.reduce((a, l) => a + l.fee, 0))) || '0'}</td></tr>` : '';
 }
@@ -1043,6 +1056,10 @@ $('repDate').addEventListener('input', e => {
 });
 $('repDate').addEventListener('blur', () => renderReport());
 $('repCal').onclick = () => openCalendar($('repCal'), repDate, setRepDate);
+$('repCos').addEventListener('click', e => {
+  const b = e.target.closest('button[data-co]');
+  if (b) { repCo = b.dataset.co; renderReport(); }
+});
 $('repCopy').onclick = async () => {
   const { lines } = repLines();
   const text = lines.filter(l => l.code || l.to).map(l => [l.to, l.code].filter(Boolean).join('\t')).join('\n');

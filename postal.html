@@ -642,11 +642,11 @@ const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.save
 function freshSlip() {
   const last = slips.slice().sort(byNewest)[0];
   const date = todayIso();
-  // a new form starts blank; only the date and เล่มที่ are filled in (เลขที่ and ครั้งที่ are typed by hand)
+  // a new form starts blank; only the date, เล่มที่ and ศฝ./ปณ. are filled in (เลขที่ and ครั้งที่ are typed by hand)
   return {
     id: null, date,
     book: last?.book || '', no: '',
-    company: '', unit: '', permit: '', office: '', sender: '', words: '',
+    company: '', unit: '', permit: '', office: 'วารินชำราบ', sender: '', words: '',
     round: '',
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},

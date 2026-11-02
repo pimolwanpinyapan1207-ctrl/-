@@ -388,7 +388,7 @@ table.f.carry { border-top: 0; }
       <div class="title">ใบนำส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินสินเชื่อ</div>
       <div class="fields">
         <span>หน่วยงาน</span><span class="dot combo"><input data-f="unit" id="unitInput" aria-label="หน่วยงาน" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="unitList"><ul class="suggest no-print" id="unitList" role="listbox" hidden></ul></span>
-        <span>ใบอนุญาตเลขที่</span><span class="dot"><input data-f="permit" aria-label="ใบอนุญาตเลขที่"></span>
+        <span>ใบอนุญาตเลขที่</span><span class="dot combo"><input data-f="permit" id="permitInput" aria-label="ใบอนุญาตเลขที่" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="permitList"><ul class="suggest no-print" id="permitList" role="listbox" hidden></ul></span>
       </div>
       <div class="subtitle">ได้ฝากส่งสิ่งของทางไปรษณีย์โดยชำระค่าบริการเป็นเงินเชื่อดังรายการต่อไปนี้</div>
       <div class="fields">
@@ -531,6 +531,7 @@ const PLACES = [
   }).filter(x => x.zip),  // drops two เทศบาลตำบล rows in the source data that are not real อำเภอ
 ];
 const COMPANIES = ['อมตะ', 'ยงสวัสดิ์', 'โชคเจริญ', 'ไทยอักษร', 'ฟีนิกซ์'];
+const PERMITS = ['3/2559', '4/2559', '5/2563', '7/2564', '8/2564'];
 const TYPES = ['ลงทะเบียน', 'รับรอง', 'EMS', 'รับประกัน', 'พัสดุฯ', 'พกง.', 'ธรรมดา'];
 const ROWS = 10;
 const KEY_SLIPS = 'postal-slips-v1';
@@ -1132,6 +1133,7 @@ function comboPicker(input, list, choices) {
 }
 comboPicker($('companyInput'), $('companyList'), COMPANIES);
 comboPicker($('unitInput'), $('unitList'), COMPANIES);
+comboPicker($('permitInput'), $('permitList'), PERMITS);
 
 // ---------- date: typed วัน/เดือน/ปี, or picked from the calendar ----------
 const dateText = $('dateText'), datePick = $('datePick');

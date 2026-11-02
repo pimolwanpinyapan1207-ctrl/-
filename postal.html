@@ -642,10 +642,9 @@ const byNewest = (a, b) => (b.date || '').localeCompare(a.date || '') || (b.save
 
 function freshSlip() {
   const last = slips.slice().sort(byNewest)[0];
-  const date = todayIso();
-  // a new form starts blank; only the date, เล่มที่ and ศฝ./ปณ. are filled in (เลขที่ and ครั้งที่ are typed by hand)
+  // a new form starts blank; only เล่มที่ and ศฝ./ปณ. are filled in (the date, เลขที่ and ครั้งที่ are entered by hand)
   return {
-    id: null, date,
+    id: null, date: '',
     book: last?.book || '', no: '',
     company: '', unit: '', permit: '', office: 'วารินชำราบ', sender: '', words: '',
     round: '',
@@ -765,6 +764,8 @@ function toast(msg, bad) {
 let saving = false;
 async function save() {
   if (saving) return false;
+  // the date starts empty and is picked by hand; history and the daily report need it
+  if (!slip.date) { toast('กรุณาใส่ วัน/เดือน/ปี ก่อนบันทึก', true); $('dateText').focus(); return false; }
   const dup = slips.find(s => s.id !== slip.id && s.no && s.no === slip.no && (s.book || '') === (slip.book || ''));
   if (dup && !confirm(`มีใบนำส่ง เล่ม ${slip.book || '-'} เลขที่ ${slip.no} อยู่แล้ว\nบันทึกซ้ำเลขเดิมใช่ไหม?`)) return false;
   const bad = slip.items.filter(it => it.code && !TRACK_RE.test(it.code)).length;
@@ -1147,6 +1148,7 @@ dateText.addEventListener('input', () => {
   const iso = dmyToIso(dateText.value);
   dateText.classList.toggle('bad', !!dateText.value.trim() && !iso);
   if (iso) setDate(iso);
+  else if (!dateText.value.trim()) setDate('');  // emptied: the slip has no date until one is picked
 });
 dateText.addEventListener('blur', () => {  // tidy to dd/mm/yyyy, or put back the last good date
   if (dmyToIso(dateText.value) || !dateText.value.trim()) dateText.value = isoToDmy(slip.date);

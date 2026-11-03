@@ -1,6 +1,6 @@
 <title>ระบบติดตามเอกสาร</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;500;600;700&family=Mitr:wght@300;400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;500;600;700&family=Mitr:wght@300;400&family=Mali:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: a single working column — status strip that doubles as filters, then a ledger of document-set cards, each with a 3-stop delivery track (เตรียม → ส่งออก → ถึงลูกค้า). */
 :root {
@@ -330,7 +330,8 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
 
 /* ---------- calm look: softer ground, rounded panels, quiet shadows ---------- */
-:root { --bg: #f4f6fa; --line: #e3e8ef; --shadow: 0 1px 2px rgba(25, 35, 55, .04), 0 8px 24px -14px rgba(25, 35, 55, .18); }
+:root { --display: "Mali", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif; --body: var(--display);  /* rounded, friendly Thai face */
+  --bg: #f4f6fa; --line: #e3e8ef; --shadow: 0 1px 2px rgba(25, 35, 55, .04), 0 8px 24px -14px rgba(25, 35, 55, .18); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -14px rgba(0, 0, 0, .6); } }
 :root[data-theme="dark"] { --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -14px rgba(0, 0, 0, .6); }
 body { margin: 0; font-size: 15.5px; line-height: 1.6; }

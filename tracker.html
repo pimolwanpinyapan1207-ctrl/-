@@ -362,6 +362,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .brand h1 { font-size: 1.12rem; line-height: 1.3; white-space: nowrap; }
 .brand small { display: block; font-size: .76rem; opacity: .8; margin-top: 2px; line-height: 1.4; }
 .side-group { display: grid; gap: 6px; position: relative; z-index: 1; }
+.side-group.add .side-btn.primary { padding-block: 12px; font-size: 1.02rem; }
 .side-label { font-size: .74rem; letter-spacing: .06em; opacity: .65; padding: 0 12px; margin-bottom: 2px; }
 .side-btn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 14px; border-radius: 12px;
   border: 1px solid transparent; background: transparent; color: #fff; font-weight: 500; font-size: .98rem; transition: background-color .15s, border-color .15s; }
@@ -473,7 +474,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { position: relative; height: auto; padding: 16px; gap: 14px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--side-line); }
   .side-group { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
-  .side-group.acts { grid-template-columns: 1fr 1fr; }
+  .side-group.acts { grid-template-columns: 1fr; }
   .side-label, .side-foot { display: none; }
   .side-btn { flex-direction: column; gap: 4px; padding: 8px 6px; font-size: .85rem; text-align: center; justify-content: center; }
   .side-btn[aria-selected="true"] { box-shadow: none; }
@@ -488,6 +489,10 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <div><h1>ระบบติดตามเอกสาร</h1></div>
   </div>
 
+  <div class="side-group acts add">
+    <button class="side-btn primary" id="addBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>เพิ่มชุดเบิก</button>
+  </div>
+
   <nav class="side-group" role="tablist" aria-label="เมนู">
     <div class="side-label">เมนู</div>
     <button type="button" class="side-btn" role="tab" id="tab-list" aria-selected="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5.5 4h8M5.5 8h8M5.5 12h8M2.3 4h.4M2.3 8h.4M2.3 12h.4"/></svg>รายการชุดเบิก</button>
@@ -498,8 +503,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   </nav>
 
   <div class="side-group acts">
-    <div class="side-label">ทำรายการ</div>
-    <button class="side-btn primary" id="addBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>เพิ่มชุดเบิก</button>
+    <div class="side-label">ข้อมูล</div>
     <button class="side-btn secondary" id="exportBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M2 10h12M6 2v12"/></svg>ส่งออก Excel (CSV)</button>
   </div>
 

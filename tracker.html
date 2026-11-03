@@ -307,13 +307,14 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .co-pick:hover { border-color: var(--muted); }
 .co-pick:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .co-pick input { width: 18px; height: 18px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
-/* each company gets its own soft pastel: sky, mint, peach, lavender (repeats for extra names) */
+/* each company gets its own soft pastel: sky, mint, peach, lavender, rose (repeats for extra names) */
 .co-picks { gap: 8px; }
 .co-pick { --c: #6fa8e3; border: 1.5px solid color-mix(in srgb, var(--c) 50%, var(--surface)); border-radius: 12px; padding: 10px 14px;
   background: color-mix(in srgb, var(--c) 22%, var(--surface)); transition: background-color .15s, border-color .15s, box-shadow .15s; }
-.co-pick:nth-child(4n+2) { --c: #5fbf98; }
-.co-pick:nth-child(4n+3) { --c: #f0a46e; }
-.co-pick:nth-child(4n+4) { --c: #ad94dc; }
+.co-pick:nth-child(5n+2) { --c: #5fbf98; }
+.co-pick:nth-child(5n+3) { --c: #f0a46e; }
+.co-pick:nth-child(5n+4) { --c: #ad94dc; }
+.co-pick:nth-child(5n+5) { --c: #e98fae; }
 .co-pick:hover { border-color: color-mix(in srgb, var(--c) 80%, var(--surface)); background: color-mix(in srgb, var(--c) 28%, var(--surface)); }
 .co-pick:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 38%, var(--surface)); font-weight: 500;
   box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--c) 70%, transparent); }
@@ -1236,7 +1237,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 
   // companies: tick one or more; saved as one text field "A, B" so cards, search and CSV keep working.
   // A name saved before (not in the list) still shows as its own tick box, ticked.
-  const COMPANIES = ["บริษัทสำนักพิมพ์ อมตะ จำกัด", "บริษัทยงสวัสดิ์ อินเตอร์กรุ๊ป", "บริษัทไทยอักษร จำกัด", "บริษัทโชคเจริญ มาร์เก็ตติ้ง จำกัด"];
+  const COMPANIES = ["บริษัทสำนักพิมพ์ อมตะ จำกัด", "บริษัทยงสวัสดิ์ อินเตอร์กรุ๊ป", "บริษัทไทยอักษร จำกัด", "บริษัทโชคเจริญ มาร์เก็ตติ้ง จำกัด", "บริษัทฟีนิกซ์ อินเตอร์ ซัพพลาย จำกัด"];
   // the earlier spelling, so records saved with it tick the same box instead of showing a duplicate
   const COMPANY_ALIAS = { "บริษัทยงสวัสดิ์ อินเตอร์ กรุ๊ป": "บริษัทยงสวัสดิ์ อินเตอร์กรุ๊ป" };
   function drawCompanies(value) {

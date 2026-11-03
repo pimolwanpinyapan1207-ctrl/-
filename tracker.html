@@ -432,6 +432,17 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 
 /* report / history panels follow the same rounding */
 .rep-sec { border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); }
+/* daily report: each section and number tile carries a soft wash of its status colour; tables sit on white inside */
+.rep-sec { --c: var(--accent); background: color-mix(in srgb, var(--c) 8%, var(--surface)); border-color: color-mix(in srgb, var(--c) 25%, var(--line)); }
+.rep-sec.tone-move { --c: var(--move); } .rep-sec.tone-done { --c: var(--done); }
+.rep-sec.tone-late { --c: var(--late); } .rep-sec.tone-wait { --c: var(--wait); }
+.rep-sec.tone-docs { --c: #f0a46e; }
+.rep-sec .tbl table { background: var(--surface); border: 1px solid color-mix(in srgb, var(--c) 18%, var(--line)); border-radius: 12px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+.rep-sec .tbl th { background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+.rep-sec .tbl th, .rep-sec .tbl td { padding-left: 12px; }
+.rep-sec .tbl tr:nth-child(odd) td { background: color-mix(in srgb, var(--c) 4%, var(--surface)); }
+.rep-sec .parcel-list { background: var(--surface); border: 1px solid color-mix(in srgb, var(--c) 18%, var(--line)); border-radius: 12px; padding: 4px 14px 4px 2.2em; }
+.rep-stats .stat { background: color-mix(in srgb, var(--c) 10%, var(--surface)); border-color: color-mix(in srgb, var(--c) 25%, var(--line)); }
 
 /* empty state: a quiet panel with an icon instead of a dashed box */
 .empty-state { padding: 52px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); gap: 12px; }
@@ -810,7 +821,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   }
 
   function repTable(title, tone, list, cols, emptyMsg) {
-    const sec = el("section", "rep-sec");
+    const sec = el("section", "rep-sec tone-" + tone);
     const h = el("h3", null, title); h.append(el("span", "pill " + tone, list.length + " ชุด")); sec.append(h);
     if (!list.length) { sec.append(el("p", "rep-empty", emptyMsg)); return sec; }
     const box = el("div", "tbl"); const t = el("table"); const thead = el("tr");
@@ -858,7 +869,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     // shipped-today parcel list: customer + tracking, each copyable, plus copy-all
     const withTrk = d.shipped.filter((r) => r.tracking);
     if (withTrk.length) {
-      const sec = el("section", "rep-sec parcels");
+      const sec = el("section", "rep-sec parcels tone-move");
       const h = el("h3", null, "เลขพัสดุที่ส่งออก"); h.append(el("span", "pill move", withTrk.length + " ชิ้น"));
       const all = withTrk.map((r) => r.customer + " " + r.tracking).join("\n");
       const head = el("div", "parcels-head"); head.append(h, copyBtn(all, "คัดลอกทั้งหมด (ชื่อลูกค้า + เลขพัสดุ)", "คัดลอกเลขพัสดุ " + withTrk.length + " รายการแล้ว", "btn small primary"));
@@ -871,7 +882,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
       sec.append(head, ul); body.append(sec);
     }
     if (Object.keys(d.docs).length) {
-      const sec = el("section", "rep-sec"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
+      const sec = el("section", "rep-sec tone-docs"); sec.append(el("h3", null, "เอกสารที่ส่งออกในวันนั้น"));
       const ch = el("div", "chips");
       Object.entries(d.docs).forEach(([i, n]) => ch.append(el("span", "chip item-chip" + (i.includes(CMP_DOCS) ? " cdoc" : i.includes(GROUP) ? " cmp" : ""), qtyLabel(i, n))));
       ch.append(el("span", "chip total", totalText({ items: Object.keys(d.docs), itemQty: d.docs })));

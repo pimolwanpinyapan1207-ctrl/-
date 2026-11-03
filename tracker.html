@@ -657,8 +657,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   const CMP_DOCS = "เอกสารบริษัทคู่เทียบ", CMP_DOCS_NONE = "ไม่มีเอกสารบริษัทคู่เทียบ";
   const CMP_DOC_SUBS = ["ป.อินเตอร์", "ประยูร", "ฟีนิกซ์"].map((s) => CMP_DOCS + " " + s);
   const FLAGS = new Set([NONE, STAMP, STAMP_YES, STAMP_NO, CMP_DOCS_NONE]);
-  // contracts: no copy count (only "ส่งกลับกี่ชุด"), and not in the ฉบับ/ชุด totals
-  const NOQTY = new Set(["สัญญาซื้อขาย", "สัญญาจ้างทำของ"]);
+  // contracts and "อื่นๆ": no copy count (contracts only "ส่งกลับกี่ชุด"), and not in the ฉบับ/ชุด totals
+  const NOQTY = new Set(["สัญญาซื้อขาย", "สัญญาจ้างทำของ", OTHER]);
   const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name.startsWith(CMP_DOCS) ? "ชุด" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
   const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
@@ -1138,7 +1138,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
   const retOf = (r, name) => (r && r.itemReturn && Number(r.itemReturn[name]) >= 1 ? Number(r.itemReturn[name]) : 0);
-  const itemLabel = (r, i) => i === OTHER ? (r && r.otherText ? r.otherText : OTHER) + " " + qtyOf(r, i) + " " + unitOf(i)
+  const itemLabel = (r, i) => i === OTHER ? (r && r.otherText ? r.otherText : OTHER)
     : (FLAGS.has(i) ? i : (NOQTY.has(i) ? i : qtyLabel(i, qtyOf(r, i))) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"

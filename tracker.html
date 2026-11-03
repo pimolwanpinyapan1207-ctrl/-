@@ -671,6 +671,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     // ret: also record how many signed sets the customer sent back
     { name: "สัญญาซื้อขาย", label: "สัญญาซื้อขาย", ret: true },
     { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ", ret: true },   // \n = second line inside the box
+    { head: "เอกสารถอนเงินค้ำ" },
+    { name: "เอกสารถอนเงินค้ำ", label: "เอกสารถอนเงินค้ำ" },
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;

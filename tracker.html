@@ -322,6 +322,10 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
+.checks .item.other label { flex: 0 0 auto; }
+.checks .other-txt { flex: 1 1 12em; min-width: 0; padding: 5px 12px; border-radius: 99px; border: 1.5px solid var(--c-line); background: #ffffff; color: var(--ink); font: inherit; font-size: .9rem; }
+.checks .other-txt:disabled { opacity: .45; background: transparent; border-style: dashed; }
+.checks .other-txt:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-line) 30%, transparent); }
 .checks .ret { flex: none; width: auto; font: inherit; font-size: .85rem; padding: 3px 8px; border-radius: 99px; border: 1.5px solid var(--c-line); background: #ffffff; color: var(--c-ink); cursor: pointer; }
 .checks .ret:disabled { opacity: .4; background: transparent; color: inherit; border-style: dashed; cursor: default; }
 .suggest-wrap { position: relative; display: block; flex: 1 1 240px; min-width: 0; }
@@ -644,6 +648,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   // guarantee-withdrawal papers; stored with the heading as prefix so "เอกสารบริษัท" here differs from the main item
   const WD = "เอกสารถอนเงินค้ำ";
   const WD_SUBS = ["สัญญาเงินค้ำ", "KTB", "เอกสารบริษัท", "หน้าบัญชี"].map((s) => WD + " " + s);
+  // "อื่นๆ": a free item; its typed name is kept in the record's otherText and shown in place of "อื่นๆ"
+  const OTHER = "อื่นๆ";
   const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company
   const NONE = "ไม่มีคู่เทียบ";
   const STAMP = "อากรแสตมป์", STAMP_YES = "มีอากรแสตมป์", STAMP_NO = "ไม่มีอากรแสตมป์";
@@ -676,6 +682,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ", ret: true },   // \n = second line inside the box
     { head: WD },
     ...WD_SUBS.map((n) => ({ name: n, label: n.slice(WD.length + 1) })),
+    { head: OTHER },
+    { name: OTHER, label: OTHER, text: true },
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;
@@ -929,7 +937,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     const q = $("histQ").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => histAll || createdDay(r).slice(0, 7) === histMonth)
-      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => createdDay(b).localeCompare(createdDay(a)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     const n = { wait: 0, move: 0, late: 0, done: 0 };
     shown.forEach((r) => n[statusOf(r)]++);
@@ -967,7 +975,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     const q = $("q").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => filter === "all" || filter === "none" || statusOf(r) === filter)
-      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note].join(" ").toLowerCase().includes(q))
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => {
         const order = { late: 0, wait: 1, move: 2, done: 3 };
         const s = order[statusOf(a)] - order[statusOf(b)];
@@ -1120,11 +1128,18 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
       cb.addEventListener("change", () => { rs.disabled = !cb.checked; if (!cb.checked) rs.value = ""; });
       box.classList.add("wide"); box.append(rs);
     }
+    if (f.text) {   // type the document's name; usable once ticked
+      const t = document.createElement("input"); t.type = "text"; t.id = "otherText"; t.className = "other-txt"; t.disabled = true;
+      t.placeholder = "พิมพ์ชื่อเอกสาร"; t.autocomplete = "off"; t.setAttribute("aria-label", "ชื่อเอกสารอื่นๆ");
+      cb.addEventListener("change", () => { t.disabled = !cb.checked; if (cb.checked) t.focus(); });
+      box.classList.add("wide", "other"); l.after(t);
+    }
     $("itemChecks").append(box);
   });
   const qtyOf = (r, name) => (r && r.itemQty && Number(r.itemQty[name]) >= 1 ? Number(r.itemQty[name]) : 1);
   const retOf = (r, name) => (r && r.itemReturn && Number(r.itemReturn[name]) >= 1 ? Number(r.itemReturn[name]) : 0);
-  const itemLabel = (r, i) => (FLAGS.has(i) ? i : (NOQTY.has(i) ? i : qtyLabel(i, qtyOf(r, i))) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
+  const itemLabel = (r, i) => i === OTHER ? (r && r.otherText ? r.otherText : OTHER) + " " + qtyOf(r, i) + " " + unitOf(i)
+    : (FLAGS.has(i) ? i : (NOQTY.has(i) ? i : qtyLabel(i, qtyOf(r, i))) + (retOf(r, i) ? " · ส่งกลับ " + retOf(r, i) + " ชุด" : ""));
   const itemText = (r) => (r.items || []).map((i) => itemLabel(r, i));
   // totals per unit, e.g. "รวม 4 ฉบับ · 2 ชุด"
   const totalText = (r) => {
@@ -1132,7 +1147,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     (r.items || []).filter((i) => !FLAGS.has(i) && !NOQTY.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
-  const FIELDS = ["docNo", "customer", "preparedDate", "company", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note"];
+  const FIELDS = ["docNo", "customer", "preparedDate", "company", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note", "otherText"];
 
   function openForm(r, m) {
     editingId = r ? r.id : null; mode = m; delArmed = false;
@@ -1143,6 +1158,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
       n.value = String(qtyOf(r, cb.value)); n.disabled = !cb.checked;
       const rs = $(cb.id.replace("item", "ret"));
       if (rs) { rs.value = retOf(r, cb.value) ? String(retOf(r, cb.value)) : ""; rs.disabled = !cb.checked; }
+      if (cb.value === OTHER) $("otherText").disabled = !cb.checked;
     });
     if (m === "ship" && !$("shippedDate").value) $("shippedDate").value = today();
     if (!$("method").value) $("method").value = "ไปรษณีย์ EMS";  // all sets go by EMS
@@ -1296,6 +1312,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
       const rs = $(cb.id.replace("item", "ret"));
       if (rs && rs.value) data.itemReturn[cb.value] = Number(rs.value);
     }
+    if (!data.items.includes(OTHER)) data.otherText = "";
+    else if (!data.otherText) { $("otherText").focus(); return showErr("พิมพ์ชื่อเอกสารในช่อง “อื่นๆ” ก่อนบันทึก หรือเอาเครื่องหมายถูกออก"); }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
     if ($("form").querySelector(".dp-input[aria-invalid=\"true\"]")) return showErr("มีช่องวันที่ที่พิมพ์ไม่ถูกต้อง แก้ให้เป็นแบบ ว/ด/ป ก่อนบันทึก");
     // only the full form shows the number field; quick ship/receive saves must not be blocked by an old-format number

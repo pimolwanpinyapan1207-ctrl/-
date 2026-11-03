@@ -1,3 +1,5 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ระบบติดตามเอกสาร</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Sarabun:wght@400;500;600;700&family=Mitr:wght@300;400&family=Mali:wght@400;500;600;700&display=swap">
@@ -330,30 +332,41 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 @media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
 
 /* ---------- calm look: softer ground, rounded panels, quiet shadows ---------- */
-:root { --display: "Mali", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif; --body: var(--display);  /* rounded, friendly Thai face */
+:root { --hero-a: #1d4f91; --hero-b: #2f73c9; --display: "Mali", "IBM Plex Sans Thai", "Leelawadee UI", Tahoma, sans-serif; --body: var(--display);  /* rounded, friendly Thai face */
   --bg: #f4f6fa; --line: #e3e8ef; --shadow: 0 1px 2px rgba(25, 35, 55, .04), 0 8px 24px -14px rgba(25, 35, 55, .18); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -14px rgba(0, 0, 0, .6); } }
 :root[data-theme="dark"] { --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -14px rgba(0, 0, 0, .6); }
 body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .wrap { gap: 22px; padding-block: 28px 72px; }
 
-/* header */
-header.top { align-items: center; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
-.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand-mark { flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft) center / 24px no-repeat;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d4f91' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 3v5h5M9 13l2 2 4-4'/%3E%3C/svg%3E"); }
-header.top h1 { font-size: 1.55rem; line-height: 1.25; }
-header.top p { font-size: .88rem; }
+/* app shell: blue sidebar on the left (brand, menu, actions), work area on the right */
+.app { display: grid; grid-template-columns: 272px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; z-index: 5; display: flex; flex-direction: column; gap: 24px; padding: 24px 16px;
+  color: #fff; background: linear-gradient(170deg, var(--hero-a), var(--hero-b)); }
+.side::after { content: ""; position: absolute; inset: 0; pointer-events: none;   /* faint rings, purely decorative */
+  background: radial-gradient(circle at 110% 104%, transparent 0 90px, rgba(255,255,255,.08) 91px 93px, transparent 94px),
+              radial-gradient(circle at 110% 104%, rgba(255,255,255,.08) 0 64px, transparent 65px); }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 4px; position: relative; z-index: 1; }
+.logo { flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: #fff; color: var(--hero-a); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.brand h1 { font-size: 1.12rem; line-height: 1.3; white-space: nowrap; }
+.brand small { display: block; font-size: .76rem; opacity: .8; margin-top: 2px; line-height: 1.4; }
+.side-group { display: grid; gap: 6px; position: relative; z-index: 1; }
+.side-label { font-size: .74rem; letter-spacing: .06em; opacity: .65; padding: 0 12px; margin-bottom: 2px; }
+.side-btn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 14px; border-radius: 12px;
+  border: 1px solid transparent; background: transparent; color: #fff; font-weight: 500; font-size: .98rem; transition: background-color .15s, border-color .15s; }
+.side-btn svg { flex: none; width: 18px; height: 18px; opacity: .9; }
+.side-btn:hover { background: rgba(255,255,255,.12); }
+.side-btn[aria-selected="true"] { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.28); font-weight: 600; box-shadow: inset 3px 0 0 #fff; }
+.side-btn.primary { background: #fff; color: var(--hero-a); font-weight: 600; justify-content: center; box-shadow: 0 6px 16px -4px rgba(0,0,0,.25); }
+.side-btn.primary:hover { background: #eef4fd; }
+.side-btn.secondary { justify-content: center; border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.08); }
+.side-btn.secondary:hover { background: rgba(255,255,255,.18); border-color: #fff; }
+.side-foot { margin-top: auto; font-size: .78rem; padding: 0 12px; line-height: 1.5; opacity: .75; position: relative; z-index: 1; }
+.view-title { font-size: 1.5rem; line-height: 1.25; }
 .btn { border-radius: 10px; padding: 9px 16px; transition: border-color .15s, background-color .15s, filter .15s; }
 .btn:hover { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
 .btn.primary { box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
 .btn.primary:hover { background: var(--accent); }
-
-/* tabs as a soft segmented control */
-.tabs { display: inline-flex; justify-self: start; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--line) 45%, var(--bg)); max-width: 100%; }
-.tab { border: 0; margin: 0; padding: 8px 18px; border-radius: 10px; font-size: .98rem; transition: background-color .15s, color .15s; }
-.tab:hover { color: var(--ink); }
-.tab[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(25, 35, 55, .1); }
 
 /* status tiles: coloured dot + big number, pressed tile fills with its soft colour */
 .strip { gap: 12px; }
@@ -397,29 +410,43 @@ header.top p { font-size: .88rem; }
 .empty-state .btn.primary { margin-top: 4px; padding: 10px 20px; }
 
 @media (max-width: 760px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat.all { grid-column: span 2; } }
-@media (max-width: 640px) {
-  header.top { padding: 14px 16px; }
-  header.top .actions { width: 100%; }
-  header.top .actions .btn { flex: 1 1 auto; }
-  .tabs { display: flex; justify-self: stretch; }
-  .tab { flex: 1 1 auto; padding: 8px 10px; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; height: auto; padding: 16px; gap: 14px; }
+  .side-group { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .side-group.acts { grid-template-columns: 1fr 1fr; }
+  .side-label, .side-foot { display: none; }
+  .side-btn { flex-direction: column; gap: 4px; padding: 8px 6px; font-size: .85rem; text-align: center; justify-content: center; }
+  .side-btn[aria-selected="true"] { box-shadow: none; }
+  .side-group.acts .side-btn { flex-direction: row; font-size: .9rem; }
 }
 </style>
 
+<div class="app">
+<aside class="side" aria-label="เมนู">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13l2 2 4-4"/></svg></div>
+    <div><h1>ระบบติดตามเอกสาร</h1><small>ชุดเบิก ตั้งแต่เตรียมจนถึงมือลูกค้า</small></div>
+  </div>
+
+  <nav class="side-group" role="tablist" aria-label="เมนู">
+    <div class="side-label">เมนู</div>
+    <button type="button" class="side-btn" role="tab" id="tab-list" aria-selected="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5.5 4h8M5.5 8h8M5.5 12h8M2.3 4h.4M2.3 8h.4M2.3 12h.4"/></svg>รายการชุดเบิก</button>
+    <button type="button" class="side-btn" role="tab" id="tab-report" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
+    <button type="button" class="side-btn" role="tab" id="tab-history" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>ประวัติย้อนหลัง</button>
+  </nav>
+
+  <div class="side-group acts">
+    <div class="side-label">ทำรายการ</div>
+    <button class="side-btn primary" id="addBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>เพิ่มชุดเบิก</button>
+    <button class="side-btn secondary" id="exportBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M2 10h12M6 2v12"/></svg>ส่งออก Excel (CSV)</button>
+  </div>
+
+  <div class="side-foot">ข้อมูลบันทึกร่วมกันทุกเครื่อง</div>
+</aside>
+
 <div class="wrap">
-  <header class="top">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <div>
-        <h1>ระบบติดตามเอกสาร</h1>
-        <p>ติดตามชุดเบิกตั้งแต่เตรียมเอกสาร ส่งออก จนถึงมือลูกค้า</p>
-      </div>
-    </div>
-    <div class="actions">
-      <button class="btn" id="exportBtn" type="button">ส่งออกเป็น Excel (CSV)</button>
-      <button class="btn primary" id="addBtn" type="button">+ เพิ่มชุดเบิก</button>
-    </div>
-  </header>
+  <h2 class="view-title" id="viewTitle">รายการชุดเบิก</h2>
 
   <div class="moved" id="movedBar" hidden>
     <div><strong>ระบบหลักย้ายไปที่เว็บใหม่แล้ว</strong><br>ทุกคนในทีมเพิ่ม แก้ไข และบันทึกได้ และเห็นข้อมูลชุดเดียวกัน</div>
@@ -427,12 +454,6 @@ header.top p { font-size: .88rem; }
   </div>
 
   <div class="notice" id="notice" hidden></div>
-
-  <nav class="tabs" role="tablist">
-    <button type="button" class="tab" role="tab" id="tab-list" aria-selected="true">รายการชุดเบิก</button>
-    <button type="button" class="tab" role="tab" id="tab-report" aria-selected="false">รายงานประจำวัน</button>
-    <button type="button" class="tab" role="tab" id="tab-history" aria-selected="false">ประวัติย้อนหลัง</button>
-  </nav>
 
   <section class="report" id="reportView" hidden>
     <div class="rep-head">
@@ -486,6 +507,7 @@ header.top p { font-size: .88rem; }
     </div>
   </div>
   </div>
+</div>
 </div>
 
 <div class="overlay" id="overlay" hidden>
@@ -1239,6 +1261,7 @@ header.top p { font-size: .88rem; }
     if (!["list", "report", "history"].includes(v)) v = "list";
     $("reportView").hidden = v !== "report"; $("historyView").hidden = v !== "history"; $("listView").hidden = v !== "list";
     ["list", "report", "history"].forEach((k) => $("tab-" + k).setAttribute("aria-selected", String(k === v)));
+    $("viewTitle").textContent = $("tab-" + v).textContent;
     try { localStorage.setItem("view", v); } catch {}
     render();
   }

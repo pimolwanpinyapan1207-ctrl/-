@@ -1,10 +1,8 @@
 // Vercel serverless function: GET /api/track?barcode=EF123456789TH
 // Asks Thailand Post's Track & Trace API for a parcel's history and returns who received it and when.
 // The Thailand Post API key lives only in the Vercel environment variable THPOST_API_KEY, never in the page.
-// Only people signed in to the tracker (a valid Supabase session) may call it.
+// The tracker has no sign-in, so anyone who opens the site may call it.
 
-const SUPABASE_URL = "https://urqkmzqtmvwkmezadnke.supabase.co";
-const SUPABASE_ANON = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycWttenF0bXZ3a21lemFkbmtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3OTMwMTMsImV4cCI6MjEwNzM2OTAxM30.AWyx6WE6_uA_z6XLpbz-sxSltdbBMnFiUykXLkbCU4w";
 const TP = "https://trackapi.thailandpost.co.th/post/api/v1";
 
 let cached = { token: "", until: 0 }; // Thailand Post issues a short-lived token from the long-lived API key
@@ -34,11 +32,6 @@ module.exports = async (req, res) => {
   const send = (code, body) => res.status(code).json(body);
   try {
     if (!process.env.THPOST_API_KEY) return send(503, { error: "not_configured", message: "ยังไม่ได้ใส่ THPOST_API_KEY ใน Vercel" });
-
-    const auth = req.headers.authorization || "";
-    if (!auth.startsWith("Bearer ")) return send(401, { error: "signin", message: "ต้องเข้าสู่ระบบก่อน" });
-    const who = await fetch(SUPABASE_URL + "/auth/v1/user", { headers: { apikey: SUPABASE_ANON, Authorization: auth } });
-    if (!who.ok) return send(401, { error: "signin", message: "ต้องเข้าสู่ระบบก่อน" });
 
     const barcode = String(req.query.barcode || "").replace(/\s+/g, "").toUpperCase();
     if (!/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(barcode)) return send(400, { error: "barcode", message: "เลขพัสดุไม่ถูกต้อง" });

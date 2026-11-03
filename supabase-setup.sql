@@ -8,18 +8,22 @@ create table if not exists public.docsets (
   updated_by uuid default auth.uid()
 );
 
--- เปิด Row Level Security: ไม่มีนโยบายสำหรับ anon จึงไม่มีใครอ่านหรือเขียนได้ถ้ายังไม่เข้าสู่ระบบ
+-- ไม่มีการเข้าสู่ระบบ: ใครก็ได้ที่เปิดหน้าเว็บ อ่าน เพิ่ม แก้ และลบข้อมูลได้ทั้งหมด
 alter table public.docsets enable row level security;
 
 drop policy if exists "signed-in users read" on public.docsets;
 drop policy if exists "signed-in users add" on public.docsets;
 drop policy if exists "signed-in users edit" on public.docsets;
 drop policy if exists "signed-in users delete" on public.docsets;
+drop policy if exists "anyone reads" on public.docsets;
+drop policy if exists "anyone adds" on public.docsets;
+drop policy if exists "anyone edits" on public.docsets;
+drop policy if exists "anyone deletes" on public.docsets;
 
-create policy "signed-in users read"   on public.docsets for select to authenticated using (true);
-create policy "signed-in users add"    on public.docsets for insert to authenticated with check (true);
-create policy "signed-in users edit"   on public.docsets for update to authenticated using (true) with check (true);
-create policy "signed-in users delete" on public.docsets for delete to authenticated using (true);
+create policy "anyone reads"   on public.docsets for select to anon, authenticated using (true);
+create policy "anyone adds"    on public.docsets for insert to anon, authenticated with check (true);
+create policy "anyone edits"   on public.docsets for update to anon, authenticated using (true) with check (true);
+create policy "anyone deletes" on public.docsets for delete to anon, authenticated using (true);
 
 -- ให้หน้าเว็บทุกเครื่องเห็นการเปลี่ยนแปลงทันที
 do $$ begin

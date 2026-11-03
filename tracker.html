@@ -578,7 +578,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <fieldset class="fieldset" id="fs-doc">
       <legend>ข้อมูลชุดเอกสาร</legend>
       <div class="grid2">
-        <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เลข 6 หลัก เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint">เลข 6 หลัก</small></label>
+        <label class="f"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint" hidden></small></label>
         <label class="f"><span>ชื่อลูกค้า *</span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest"></label>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
         <div class="f"><span>บริษัท (เลือกได้มากกว่า 1)</span><input type="hidden" id="company"><div class="co-picks" id="coPicks"></div></div>
@@ -1238,21 +1238,20 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 
-  // document numbers are 6 digits (e.g. 000541); warn live while typing, block saving a bad or duplicate number
-  const DOCNO_LEN = 6;
+  // document numbers are digits, at most 7 (e.g. 000541); warn live while typing, block saving a bad or duplicate number
+  const DOCNO_MAX = 7;
   function checkDocNo() {
     const v = $("docNo").value.trim();
     let msg = "";
     if (v && /\D/.test(v)) msg = "เลขที่เอกสารต้องเป็นตัวเลขเท่านั้น";
-    else if (v && v.length < DOCNO_LEN) msg = "เลขที่สั้นไป: ใส่ " + v.length + " หลัก ขาดอีก " + (DOCNO_LEN - v.length) + " หลัก (ต้องมี " + DOCNO_LEN + " หลัก)";
-    else if (v.length > DOCNO_LEN) msg = "เลขที่เกิน: ใส่ " + v.length + " หลัก เกินมา " + (v.length - DOCNO_LEN) + " หลัก (ต้องมี " + DOCNO_LEN + " หลัก)";
+    else if (v.length > DOCNO_MAX) msg = "เลขที่เกิน " + DOCNO_MAX + " ตัว: ใส่มา " + v.length + " ตัว เกิน " + (v.length - DOCNO_MAX) + " ตัว บันทึกไม่ได้";
     else if (v) {
       const dup = rows.find((r) => r.docNo === v && r.id !== editingId);
       if (dup) msg = "เลขที่ " + v + " มีอยู่แล้ว (" + (dup.customer || "ไม่ระบุลูกค้า") + ")";
     }
     const hint = $("docNoHint");
-    hint.textContent = msg || (v.length === DOCNO_LEN ? "เลข 6 หลัก ✓" : "เลข 6 หลัก");
-    hint.classList.toggle("bad", !!msg); hint.classList.toggle("good", !msg && v.length === DOCNO_LEN);
+    hint.textContent = msg; hint.hidden = !msg;
+    hint.classList.toggle("bad", !!msg); hint.classList.remove("good");
     $("docNo").setAttribute("aria-invalid", String(!!msg));
     return msg;
   }

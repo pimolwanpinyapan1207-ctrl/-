@@ -309,13 +309,13 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .co-pick input { width: 18px; height: 18px; margin: 0; padding: 0; flex: none; accent-color: var(--accent); }
 /* each company gets its own soft pastel: sky, mint, peach, lavender (repeats for extra names) */
 .co-picks { gap: 8px; }
-.co-pick { --c: #5b9bd5; border: 1.5px solid color-mix(in srgb, var(--c) 32%, var(--surface)); border-radius: 12px; padding: 10px 14px;
-  background: color-mix(in srgb, var(--c) 8%, var(--surface)); transition: background-color .15s, border-color .15s, box-shadow .15s; }
-.co-pick:nth-child(4n+2) { --c: #4aae86; }
-.co-pick:nth-child(4n+3) { --c: #e39257; }
-.co-pick:nth-child(4n+4) { --c: #9a7fd0; }
-.co-pick:hover { border-color: color-mix(in srgb, var(--c) 60%, var(--surface)); background: color-mix(in srgb, var(--c) 13%, var(--surface)); }
-.co-pick:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, var(--surface)); font-weight: 500;
+.co-pick { --c: #6fa8e3; border: 1.5px solid color-mix(in srgb, var(--c) 50%, var(--surface)); border-radius: 12px; padding: 10px 14px;
+  background: color-mix(in srgb, var(--c) 22%, var(--surface)); transition: background-color .15s, border-color .15s, box-shadow .15s; }
+.co-pick:nth-child(4n+2) { --c: #5fbf98; }
+.co-pick:nth-child(4n+3) { --c: #f0a46e; }
+.co-pick:nth-child(4n+4) { --c: #ad94dc; }
+.co-pick:hover { border-color: color-mix(in srgb, var(--c) 80%, var(--surface)); background: color-mix(in srgb, var(--c) 28%, var(--surface)); }
+.co-pick:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 38%, var(--surface)); font-weight: 500;
   box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--c) 70%, transparent); }
 .co-pick input { accent-color: var(--c); }
 .f.has-suggest { position: relative; }

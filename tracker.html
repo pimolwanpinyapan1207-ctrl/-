@@ -640,7 +640,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 
 <script>
 (function () {
-  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด" };
+  const KTB_DOCS = "KTB+เอกสารร้าน+หน้าบัญชีแต่ละบริษัท";   // under the เอกสารถอนเงินค้ำ heading
+  const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด", [KTB_DOCS]: "ชุด" };
   const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company
   const NONE = "ไม่มีคู่เทียบ";
   const STAMP = "อากรแสตมป์", STAMP_YES = "มีอากรแสตมป์", STAMP_NO = "ไม่มีอากรแสตมป์";
@@ -672,7 +673,8 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     { name: "สัญญาซื้อขาย", label: "สัญญาซื้อขาย", ret: true },
     { name: "สัญญาจ้างทำของ", label: "สัญญาจ้าง\nทำของ", ret: true },   // \n = second line inside the box
     { head: "เอกสารถอนเงินค้ำ" },
-    { name: "เอกสารถอนเงินค้ำ", label: "เอกสารถอนเงินค้ำ" },
+    { name: "สัญญาเงินค้ำ", label: "สัญญาเงินค้ำ" },
+    { name: KTB_DOCS, label: "KTB+เอกสารร้าน+\nหน้าบัญชีแต่ละบริษัท" },
   ];
   const $ = (id) => document.getElementById(id);
   let db = null, col = null, canWrite = true;

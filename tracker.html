@@ -647,7 +647,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   const UNITS = { "ใบสั่งซื้อ": "ชุด", "ใบสั่งจ้าง": "ชุด" };
   // guarantee-withdrawal papers; stored with the heading as prefix so "เอกสารบริษัท" here differs from the main item
   const WD = "เอกสารถอนเงินค้ำ";
-  const WD_SUBS = ["สัญญาเงินค้ำ", "KTB", "เอกสารบริษัท", "หน้าบัญชี"].map((s) => WD + " " + s);
+  const WD_SUBS = ["สัญญาเงินค้ำ", "KTB", "เอกสารบริษัท", "หน้าบัญชี", "ใบเสร็จ"].map((s) => WD + " " + s);
   // "อื่นๆ": a free item; its typed name is kept in the record's otherText and shown in place of "อื่นๆ"
   const OTHER = "อื่นๆ";
   const GROUP = "คู่เทียบ";  // comparison quotes, one sub-item per competitor company

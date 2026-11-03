@@ -441,12 +441,12 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .empty-state .btn.primary { margin-top: 4px; padding: 10px 20px; }
 
 /* add/edit form: one field per row going down, its caption on the left and the box on the right */
-.sheet { width: min(760px, 100%); }
+.sheet { width: min(840px, 100%); }
 .sheet .grid2 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.sheet .f { grid-template-columns: 170px minmax(0, 1fr); column-gap: 16px; row-gap: 4px; align-items: start; }
-.sheet .f > :first-child { grid-column: 1; padding-top: 10px; line-height: 1.4; }
+.sheet .f { grid-template-columns: 196px minmax(0, 1fr); column-gap: 16px; row-gap: 5px; align-items: start; }
+.sheet .f > :first-child { grid-column: 1; padding-top: 10px; line-height: 1.4; font-weight: 700; color: var(--ink); }
 .sheet .f > :not(:first-child) { grid-column: 2; }
-.sheet .f.has-suggest > .suggest { left: 186px; }
+.sheet .f.has-suggest > .suggest { left: 212px; }
 .sheet .grid2 > .f .dp-pop { left: 0; right: auto; }
 .sheet .fieldset > .f + .f, .sheet .fieldset > .grid2 + .f { margin-top: 2px; }
 @media (max-width: 560px) {

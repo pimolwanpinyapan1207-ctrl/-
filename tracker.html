@@ -440,6 +440,20 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .empty-state > div { max-width: 34em; line-height: 1.7; }
 .empty-state .btn.primary { margin-top: 4px; padding: 10px 20px; }
 
+/* printing: only the open view on white paper, no sidebar, buttons, search or shadows */
+.view-title::after { content: attr(data-printed); display: none; }
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; font-size: 13px; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .app { display: block; min-height: 0; }
+  .side, #movedBar, #notice, .tools, .cardacts, .rep-head, .hist-head input, #repText, .btn, .overlay, .toast, .empty-state .btn { display: none !important; }
+  .wrap { max-width: none; padding: 0; gap: 12px; }
+  .view-title::after { display: block; font-family: var(--body); font-size: .8rem; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .card, .stat, .rep-sec, .empty-state { box-shadow: none !important; break-inside: avoid; }
+  .strip { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  .stat.all { grid-column: auto !important; }
+}
 /* add/edit form: one field per row going down, its caption on the left and the box on the right */
 .sheet { width: min(840px, 100%); }
 .sheet .grid2 { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -458,7 +472,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { position: relative; height: auto; padding: 16px; gap: 14px; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--side-line); }
-  .side-group { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .side-group { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
   .side-group.acts { grid-template-columns: 1fr 1fr; }
   .side-label, .side-foot { display: none; }
   .side-btn { flex-direction: column; gap: 4px; padding: 8px 6px; font-size: .85rem; text-align: center; justify-content: center; }
@@ -480,6 +494,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <button type="button" class="side-btn" role="tab" id="tab-report" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
     <button type="button" class="side-btn" role="tab" id="tab-history" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>ประวัติย้อนหลัง</button>
     <button type="button" class="side-btn" id="reloadBtn" title="ดึงรายการล่าสุดจากฐานข้อมูล"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2v3h-3"/></svg>รีเฟรชข้อมูล</button>
+    <button type="button" class="side-btn" id="printBtn" title="พิมพ์หน้าที่เปิดอยู่ (รายการ รายงานประจำวัน หรือประวัติย้อนหลัง)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>พิมพ์เอกสาร</button>
   </nav>
 
   <div class="side-group acts">
@@ -1403,6 +1418,12 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
       else render();
       toast("✓ อัปเดตข้อมูลแล้ว · ทั้งหมด " + rows.length + " รายการ");
     } finally { reloading = false; $("reloadBtn").disabled = false; $("reloadBtn").classList.remove("busy"); }
+  };
+  // เมนู "พิมพ์เอกสาร": print whichever view is open; the sidebar and buttons are hidden by the print styles
+  $("printBtn").onclick = () => {
+    const now = new Date();
+    $("viewTitle").dataset.printed = "พิมพ์เมื่อ " + thDate(today()) + " เวลา " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + " น.";
+    window.print();
   };
   async function startSupabase() {
     try { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); } catch { return false; }

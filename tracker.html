@@ -361,6 +361,9 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .side-btn.primary:hover { background: #eef4fd; }
 .side-btn.secondary { justify-content: center; border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.08); }
 .side-btn.secondary:hover { background: rgba(255,255,255,.18); border-color: #fff; }
+.side-btn.busy svg { animation: spin .8s linear infinite; }
+.side-btn[disabled] { cursor: progress; opacity: .8; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .side-foot { margin-top: auto; font-size: .78rem; padding: 0 12px; line-height: 1.5; opacity: .75; position: relative; z-index: 1; }
 .view-title { font-size: 1.5rem; line-height: 1.25; }
 .btn { border-radius: 10px; padding: 9px 16px; transition: border-color .15s, background-color .15s, filter .15s; }
@@ -427,7 +430,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
   .side { position: static; height: auto; padding: 16px; gap: 14px; }
-  .side-group { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .side-group { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
   .side-group.acts { grid-template-columns: 1fr 1fr; }
   .side-label, .side-foot { display: none; }
   .side-btn { flex-direction: column; gap: 4px; padding: 8px 6px; font-size: .85rem; text-align: center; justify-content: center; }
@@ -448,6 +451,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <button type="button" class="side-btn" role="tab" id="tab-list" aria-selected="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5.5 4h8M5.5 8h8M5.5 12h8M2.3 4h.4M2.3 8h.4M2.3 12h.4"/></svg>รายการชุดเบิก</button>
     <button type="button" class="side-btn" role="tab" id="tab-report" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
     <button type="button" class="side-btn" role="tab" id="tab-history" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>ประวัติย้อนหลัง</button>
+    <button type="button" class="side-btn" id="reloadBtn" title="ดึงรายการล่าสุดจากฐานข้อมูล"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2v3h-3"/></svg>รีเฟรชข้อมูล</button>
   </nav>
 
   <div class="side-group acts">
@@ -1344,9 +1348,11 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   async function sbRefresh() {
     // rows "postal:…" belong to postal.html (ใบนำส่งไปรษณีย์), which shares this table and sign-in
     const { data, error } = await sb.from("docsets").select("id,data").not("id", "like", "postal:%");
-    if (error) { $("notice").textContent = "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + error.message; $("notice").hidden = false; return; }
+    if (error) { $("notice").textContent = "โหลดข้อมูลจาก Supabase ไม่สำเร็จ: " + error.message; $("notice").hidden = false; return false; }
+    $("notice").hidden = true;
     rows = data.map((r) => ({ id: r.id, ...r.data }));
     render();
+    return true;
   }
   // same shape the save/delete code already uses for the claude.ai store: col.doc(id).set(data) / .delete()
   const sbCollection = {
@@ -1357,6 +1363,18 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
         async delete() { const { error } = await sb.from("docsets").delete().eq("id", id); if (error) throw sbErr(error); await sbRefresh(); },
       };
     },
+  };
+  // เมนู "รีเฟรชข้อมูล": pull the latest list again (claude.ai already streams changes live; local mode rereads this browser)
+  let reloading = false;
+  $("reloadBtn").onclick = async () => {
+    if (reloading) return;
+    reloading = true; $("reloadBtn").disabled = true; $("reloadBtn").classList.add("busy");
+    try {
+      if (sb) { if (!(await sbRefresh())) return toast("รีเฟรชไม่สำเร็จ ลองใหม่อีกครั้ง", 4000); }
+      else if (localMode) { rows = loadLocal(); render(); }
+      else render();
+      toast("✓ อัปเดตข้อมูลแล้ว · ทั้งหมด " + rows.length + " รายการ");
+    } finally { reloading = false; $("reloadBtn").disabled = false; $("reloadBtn").classList.remove("busy"); }
   };
   async function startSupabase() {
     try { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); } catch { return false; }

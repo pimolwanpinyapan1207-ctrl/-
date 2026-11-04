@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ใบนำส่งไปรษณีย์</title>
+<script>
+// this page is one section of tracker.html (shown there in a frame, ?embed): opened on its own, go to that section
+if (/[?&]embed\b/.test(location.search)) document.documentElement.classList.add('embed');
+else if (window.top === window.self) location.replace('tracker.html#postal');
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Sarabun:wght@400;600;700&display=swap">
 <style>
@@ -155,6 +160,9 @@ a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text
   .side-btn { padding: 8px 10px; font-size: .9rem; }
   .side-foot { display: none; }
 }
+/* inside tracker.html the sidebar there drives this page, so this one is hidden (its buttons still work when pressed from there) */
+.embed .side { display: none; }
+.embed .app { grid-template-columns: minmax(0, 1fr); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; font-weight: 500; }
 .btn:hover { border-color: var(--muted); }

@@ -457,6 +457,20 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 .empty-state > div { max-width: 34em; line-height: 1.7; }
 .empty-state .btn.primary { margin-top: 4px; padding: 10px 20px; }
 
+/* two sections in one system: ติดตามชุดเบิก (this page) and ใบนำส่งไปรษณีย์ (postal.html shown in a frame) */
+.sys { gap: 4px; padding: 4px; border-radius: 14px; background: var(--side-hover); border: 1px solid var(--side-line); }
+.sys-btn { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; color: var(--side-ink); font-weight: 500; font-size: .98rem; line-height: 1.3; text-align: left; transition: background-color .15s; }
+.sys-btn svg { width: 20px; height: 20px; }
+.sys-btn:hover { background: var(--side-hover); }
+.sys-btn[aria-selected="true"] { background: var(--surface); border-color: var(--side-line); color: var(--side-btn); font-weight: 600; box-shadow: 0 1px 4px rgba(36, 69, 111, .12); }
+.sys-pane { display: flex; flex-direction: column; gap: 24px; position: relative; z-index: 1; }
+.side-btn .count { margin-left: auto; font-size: .75rem; padding: 0 8px; border-radius: 999px; background: var(--side-hover); }
+.side-btn.clear { justify-content: center; border-color: color-mix(in srgb, var(--bad, #b4322c) 35%, transparent); color: var(--bad, #b4322c); }
+.side-btn.clear:hover { background: color-mix(in srgb, var(--bad, #b4322c) 10%, transparent); }
+.postal-frame { display: block; width: 100%; height: 100vh; border: 0; background: var(--bg); }
+body.on-postal .wrap { display: none; }
+
 /* printing: only the open view on white paper, no sidebar, buttons, search or shadows */
 .view-title::after { content: attr(data-printed); display: none; }
 @media print {
@@ -495,6 +509,14 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   .side-btn { flex-direction: column; gap: 4px; padding: 8px 6px; font-size: .85rem; text-align: center; justify-content: center; }
   .side-btn[aria-selected="true"] { box-shadow: none; }
   .side-group.acts .side-btn { flex-direction: row; font-size: .9rem; }
+  .side-group.sys { grid-template-columns: 1fr 1fr; }
+  .sys-btn { flex-direction: row; justify-content: center; gap: 8px; font-size: .9rem; }
+  .sys-pane { gap: 14px; }
+  #postalSide .side-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #postalSide .side-group.acts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #postalSide .side-group.acts .side-btn { flex-direction: column; font-size: .85rem; }
+  .side-btn .count { margin: 0; }
+  .postal-frame { height: calc(100vh - 40px); }
 }
 </style>
 
@@ -505,6 +527,12 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <div><h1>ระบบติดตามเอกสาร</h1></div>
   </div>
 
+  <div class="side-group sys" role="tablist" aria-label="หัวข้อ" id="sysBar">
+    <button type="button" class="sys-btn" role="tab" id="sys-track" aria-selected="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 1.5h-6v13h9v-10z"/><path d="M9.5 1.5v3h3M5.5 9.5l1.7 1.7 3.3-3.4"/></svg>ติดตามชุดเบิก</button>
+    <button type="button" class="sys-btn" role="tab" id="sys-postal" aria-selected="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9.5" rx="1.5"/><path d="m2.3 4.6 5.7 4.4 5.7-4.4"/></svg>ใบนำส่งไปรษณีย์</button>
+  </div>
+
+  <div class="sys-pane" id="trackSide">
   <div class="side-group acts add">
     <button class="side-btn primary" id="addBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>เพิ่มชุดเบิก</button>
   </div>
@@ -522,8 +550,34 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     <div class="side-label">ข้อมูล</div>
     <button class="side-btn secondary" id="exportBtn" type="button"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M2 10h12M6 2v12"/></svg>ส่งออก Excel (CSV)</button>
   </div>
+  </div>
 
-  <div class="side-foot">ข้อมูลบันทึกร่วมกันทุกเครื่อง</div>
+  <!-- ใบนำส่งไปรษณีย์: these buttons press the matching (hidden) buttons inside the embedded postal.html -->
+  <div class="sys-pane" id="postalSide" hidden>
+  <nav class="side-group" aria-label="เมนูใบนำส่งไปรษณีย์">
+    <div class="side-label">เมนู</div>
+    <button type="button" class="side-btn" data-p="btnNew"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 1.5h-6v13h9v-10z"/><path d="M9.5 1.5v3h3M8 7.5v4M6 9.5h4"/></svg>ฟอร์มใหม่</button>
+    <button type="button" class="side-btn" data-p="btnHistory"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v2.5H5M8 5v3.2l2 1.3"/></svg>รายการย้อนหลัง<span class="count" id="pHistCount">0</span></button>
+    <button type="button" class="side-btn" data-p="btnReport"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11.5" rx="1.5"/><path d="M2 6h12M5 1v3M11 1v3M5 9h2M9 9h2M5 11.5h2"/></svg>รายงานประจำวัน</button>
+    <button type="button" class="side-btn" data-p="btnReload" title="ดึงใบนำส่งล่าสุดจากฐานข้อมูล ข้อมูลที่กำลังกรอกอยู่ไม่หาย"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2v3h-3"/></svg>รีเฟรชข้อมูล</button>
+  </nav>
+
+  <div class="side-group acts">
+    <div class="side-label">ใบที่เปิดอยู่</div>
+    <button type="button" class="side-btn primary" data-p="btnSave"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2.5h8.5l2.5 2.5v8.5h-11z"/><path d="M5 2.5v3.5h5V2.5M5 13.5V9.5h6v4"/></svg>บันทึก</button>
+    <button type="button" class="side-btn secondary" data-p="btnPrint"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 6V2.5h7V6M4.5 11.5h-2v-5h11v5h-2"/><path d="M4.5 9.5h7v4h-7z"/></svg>พิมพ์ใบนำส่ง</button>
+    <button type="button" class="side-btn clear" data-p="btnClear"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9M6.8 7v4.5M9.2 7v4.5"/></svg>ลบข้อมูล</button>
+  </div>
+
+  <div class="side-group acts">
+    <div class="side-label">ข้อมูล</div>
+    <button type="button" class="side-btn" data-p="btnCsv"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M2 6h12M2 10h12M6 2v12"/></svg>ส่งออก CSV (Excel)</button>
+    <button type="button" class="side-btn" data-p="btnBackup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M5 7l3 3 3-3M2.5 11v2.5h11V11"/></svg>สำรองข้อมูล</button>
+    <button type="button" class="side-btn" data-p="btnRestore"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 10V2M5 5l3-3 3 3M2.5 11v2.5h11V11"/></svg>นำเข้าข้อมูลสำรอง</button>
+  </div>
+  </div>
+
+  <div class="side-foot" id="sideFoot">ข้อมูลบันทึกร่วมกันทุกเครื่อง</div>
 </aside>
 
 <div class="wrap">
@@ -589,6 +643,7 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
   </div>
   </div>
 </div>
+<iframe class="postal-frame" id="postalFrame" title="ใบนำส่งไปรษณีย์" hidden></iframe>
 </div>
 
 <div class="overlay" id="overlay" hidden>
@@ -1463,6 +1518,50 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
     $("viewTitle").dataset.printed = "พิมพ์เมื่อ " + thDate(today()) + " เวลา " + String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0") + " น.";
     window.print();
   };
+
+  // หัวข้อ ใบนำส่งไปรษณีย์: postal.html runs in a frame with its own sidebar hidden; the buttons here press its buttons
+  const postal = $("postalFrame");
+  let postalDoc = null;
+  function syncPostal() {
+    if (!postalDoc) return;
+    document.querySelectorAll("#postalSide [data-p]").forEach((b) => {
+      const src = postalDoc.getElementById(b.dataset.p); if (!src) return;
+      if (src.dataset.view) b.setAttribute("aria-selected", String(src.classList.contains("on")));
+      b.disabled = src.disabled; b.classList.toggle("busy", src.classList.contains("busy"));
+    });
+    const n = postalDoc.getElementById("histCount"), info = postalDoc.getElementById("cloudInfo");
+    if (n) $("pHistCount").textContent = n.textContent;
+    if (info && !postal.hidden) $("sideFoot").textContent = info.textContent;
+  }
+  postal.addEventListener("load", () => {
+    try { postalDoc = postal.contentDocument; } catch { postalDoc = null; }
+    const side = postalDoc && postalDoc.querySelector(".side");
+    if (side) new MutationObserver(syncPostal).observe(side, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class", "disabled"] });
+    syncPostal();
+  });
+  document.querySelectorAll("#postalSide [data-p]").forEach((b) => b.addEventListener("click", () => {
+    const src = postalDoc && postalDoc.getElementById(b.dataset.p);
+    if (src) src.click();
+  }));
+  function showSystem(s, remember) {
+    const isPostal = s === "postal";
+    if (isPostal && !postal.getAttribute("src")) postal.src = "postal.html?embed";
+    postal.hidden = !isPostal; $("postalSide").hidden = !isPostal; $("trackSide").hidden = isPostal;
+    document.body.classList.toggle("on-postal", isPostal);
+    $("sys-track").setAttribute("aria-selected", String(!isPostal));
+    $("sys-postal").setAttribute("aria-selected", String(isPostal));
+    document.title = isPostal ? "ใบนำส่งไปรษณีย์ · ระบบติดตามเอกสาร" : "ระบบติดตามเอกสาร";
+    $("sideFoot").textContent = "ข้อมูลบันทึกร่วมกันทุกเครื่อง"; syncPostal();
+    if (!remember) return;
+    history.replaceState(null, "", isPostal ? "#postal" : location.pathname + location.search);
+    try { localStorage.setItem("system", s); } catch {}
+  }
+  $("sys-track").onclick = () => showSystem("track", true);
+  $("sys-postal").onclick = () => showSystem("postal", true);
+  if (window.claude) $("sysBar").hidden = true;  // the claude.ai copy has no postal.html next to it
+  else if (location.hash === "#postal") showSystem("postal");
+  else if (!location.hash) { try { if (localStorage.getItem("system") === "postal") showSystem("postal"); } catch {} }
+
   async function startSupabase() {
     try { await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"); } catch { return false; }
     if (!window.supabase) return false;

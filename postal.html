@@ -467,7 +467,7 @@ table.f.carry { border-top: 0; }
           <div class="stamp"><div class="stamp-box"></div>ตราประจำวัน</div>
           <div class="sigs">
             <div>ลงชื่อ <span class="sigline sender"><input data-f="sender" class="ctr" placeholder="พิมพ์ชื่อผู้ส่ง" aria-label="ชื่อผู้รับผิดชอบในการฝากส่ง"></span><br>ผู้รับผิดชอบในการฝากส่ง</div>
-            <div>ลงชื่อ <span class="sigline"></span><br>ได้ตรวจสอบและรับฝากถูกต้องแล้ว</div>
+            <div>ลงชื่อ <span class="sigline sender"><input data-f="clerk" class="ctr" placeholder="พิมพ์ชื่อผู้รับฝาก" aria-label="ชื่อผู้ตรวจสอบและรับฝาก"></span><br>ได้ตรวจสอบและรับฝากถูกต้องแล้ว</div>
           </div>
         </div>
       </div>
@@ -685,7 +685,7 @@ function freshSlip() {
   return {
     id: null, date: '',
     book: last?.book || '', no: '',
-    company: '', unit: '', permit: '', office: 'วารินชำราบ', sender: '', words: '',
+    company: '', unit: '', permit: '', office: 'วารินชำราบ', sender: '', clerk: '', words: '',
     round: '',
     items: Array.from({ length: ROWS }, blankItem),
     exPieces: '', exFee: '', intl: {},
@@ -723,7 +723,7 @@ function fill() {
   $('dateText').classList.remove('bad');
   sheet.querySelectorAll('[data-i]').forEach(el => { el.value = slip.items[el.dataset.i][el.dataset.k] ?? ''; });
   sheet.querySelectorAll('[data-intl]').forEach(el => { el.value = slip.intl[el.dataset.intl] ?? ''; });
-  sheet.querySelectorAll('[data-k="to"], [data-f="sender"]').forEach(fitText);
+  sheet.querySelectorAll('[data-k="to"], [data-f="sender"], [data-f="clerk"]').forEach(fitText);
   refresh();
 }
 function refresh() {
@@ -1318,6 +1318,8 @@ plList.addEventListener('mousedown', e => {
 window.addEventListener('resize', closePlaces);
 const senderInput = sheet.querySelector('[data-f="sender"]');
 senderInput.addEventListener('input', () => fitText(senderInput));
+const clerkInput = sheet.querySelector('[data-f="clerk"]');
+clerkInput.addEventListener('input', () => fitText(clerkInput));
 
 window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 

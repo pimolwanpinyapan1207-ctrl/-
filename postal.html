@@ -797,7 +797,11 @@ function refresh() {
   // "จำนวน … ชิ้น" counts the filled rows by itself; a number typed there wins (emptied → back to the count).
   // รวมทั้งสิ้น … ชิ้น follows it. The count is only shown, not saved, so saved totals are not counted twice.
   const typedPieces = String(slip.exPieces ?? '').trim();
-  const rowCount = slip.items.filter(it => it.to || it.code || num(it.fee)).length;
+  // plus the rows the other computers have keyed and that are not on this screen yet, so every computer sees the full count
+  const hereUids = new Set(filledUids(slip.items));
+  const otherCount = slip.id ? 0 : otherDrafts.filter(d => d.machine !== MACHINE)
+    .reduce((a, d) => a + d.items.filter(it => !it.uid || !hereUids.has(it.uid)).length, 0);
+  const rowCount = slip.items.filter(it => it.to || it.code || num(it.fee)).length + otherCount;
   const exInp = sheet.querySelector('[data-f="exPieces"]');
   if (!typedPieces && exInp !== document.activeElement) exInp.value = rowCount ? String(rowCount) : '';
   exInp.classList.toggle('auto', !typedPieces);
@@ -1539,7 +1543,10 @@ function gatherDrafts(drafts) {
   placeRows(rows);
   return rows.length;
 }
+let otherDrafts = [];  // every computer's draft rows as last seen (for the piece count)
 function showOthers(drafts) {
+  otherDrafts = drafts;
+  refresh();
   const n = drafts.filter(d => d.machine !== MACHINE).reduce((a, d) => a + d.items.length, 0);
   const pcs = drafts.filter(d => d.machine !== MACHINE && d.items.length).length;
   $('othersInfo').hidden = !n || !!slip.id;

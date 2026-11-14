@@ -204,6 +204,18 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .hist-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .hist-head input[type=search] { flex: 1 1 240px; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .hist-month { font-family: var(--display); font-weight: 600; font-size: 1.05rem; min-width: 9em; text-align: center; }
+button.hist-month { border: 1px solid transparent; background: transparent; color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+button.hist-month::before { content: ""; width: 13px; height: 12px; border: 1.5px solid var(--muted); border-top-width: 4px; border-radius: 3px; flex: none; }
+button.hist-month:hover, button.hist-month[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--line); }
+button.hist-month:disabled { cursor: default; background: transparent; border-color: transparent; }
+.hist-cal { top: 42px; left: 50%; transform: translateX(-50%); width: 300px; }
+.hist-cal .dp-day { position: relative; padding: 6px 0 12px; }
+.hist-cal .dp-day:disabled { color: var(--muted); opacity: .45; cursor: default; background: transparent; }
+.hist-cal .dp-day .cnt { position: absolute; left: 0; right: 0; bottom: 1px; font-size: .62rem; line-height: 1; color: var(--accent); font-weight: 600; }
+.hist-cal .dp-day.sel .cnt { color: var(--accent-ink); }
+.hist-cal .dp-day.has { font-weight: 600; }
+.hist-cal .dp-day.on { background: var(--accent); color: var(--accent-ink); }
+.hist-cal .dp-day.on .cnt { color: var(--accent-ink); }
 #histAll[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .hist-sum { margin: 0; color: var(--muted); font-size: .9rem; }
 .hist-day { font-size: .9rem; font-weight: 600; color: var(--muted); margin: 6px 0 -2px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
@@ -610,7 +622,7 @@ body.on-postal .wrap { display: none; }
     <div class="hist-head">
       <div class="datebar">
         <button class="btn small" type="button" id="histPrev" aria-label="เดือนก่อน">‹</button>
-        <span class="hist-month" id="histLabel"></span>
+        <span class="dp hist-pick"><button type="button" class="hist-month" id="histLabel" aria-haspopup="dialog" aria-expanded="false" title="เปิดปฏิทิน"></button><div class="dp-pop hist-cal" id="histCal" role="dialog" aria-label="ปฏิทินประวัติย้อนหลัง" hidden></div></span>
         <button class="btn small" type="button" id="histNext" aria-label="เดือนถัดไป">›</button>
         <button class="btn small" type="button" id="histNow">เดือนนี้</button>
         <button class="btn small" type="button" id="histAll" aria-pressed="false">ทุกเดือน</button>
@@ -981,17 +993,19 @@ body.on-postal .wrap { display: none; }
   }
 
   // ---------- history: every set, month by month (by its date), newest first ----------
-  let histMonth = today().slice(0, 7), histAll = false;
+  let histMonth = today().slice(0, 7), histAll = false, histDay = "";
   const monthLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return TH_MONTHS[m - 1] + " " + (y + 543); };
   const shiftMonth = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
   function renderHistory() {
     if ($("historyView").hidden) return;
-    $("histLabel").textContent = histAll ? "ทุกเดือน" : monthLabel(histMonth);
+    if (histDay && histDay.slice(0, 7) !== histMonth) histDay = "";
+    $("histLabel").textContent = histAll ? "ทุกเดือน" : histDay ? longDate(histDay) : monthLabel(histMonth);
     $("histAll").setAttribute("aria-pressed", String(histAll));
-    $("histPrev").disabled = $("histNext").disabled = histAll;
+    $("histPrev").disabled = $("histNext").disabled = $("histLabel").disabled = histAll;
+    if (histAll) closeHistCal(); else if (!$("histCal").hidden) drawHistCal();
     const q = $("histQ").value.trim().toLowerCase();
     const shown = rows
-      .filter((r) => histAll || createdDay(r).slice(0, 7) === histMonth)
+      .filter((r) => histAll || (histDay ? createdDay(r) === histDay : createdDay(r).slice(0, 7) === histMonth))
       .filter((r) => !q || [r.docNo, r.customer, r.company, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => createdDay(b).localeCompare(createdDay(a)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     const n = { wait: 0, move: 0, late: 0, done: 0 };
@@ -1002,8 +1016,8 @@ body.on-postal .wrap { display: none; }
     const list = $("histList"); list.replaceChildren();
     if (!shown.length) {
       const e = el("div", "empty-state");
-      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : "เดือนนี้")));
-      if (!histAll) e.append(el("div", null, "กด ‹ › เพื่อดูเดือนอื่น หรือกด “ทุกเดือน”"));
+      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : histDay ? "วันนี้" : "เดือนนี้")));
+      if (!histAll) e.append(el("div", null, "กด ‹ › หรือกดที่ชื่อเดือนเพื่อเปิดปฏิทิน หรือกด “ทุกเดือน”"));
       list.append(e); return;
     }
     let day = "";
@@ -1013,9 +1027,49 @@ body.on-postal .wrap { display: none; }
       list.append(card(r));
     }
   }
-  $("histPrev").onclick = () => { histMonth = shiftMonth(histMonth, -1); renderHistory(); };
-  $("histNext").onclick = () => { histMonth = shiftMonth(histMonth, 1); renderHistory(); };
-  $("histNow").onclick = () => { histAll = false; histMonth = today().slice(0, 7); renderHistory(); };
+  // calendar under the month name: each day shows how many sets it has; pick a day to list only that day,
+  // ‹ › inside it move the month the list shows
+  const histPop = { wrap: $("histCal").parentElement, close: () => closeHistCal() };
+  function closeHistCal() { $("histCal").hidden = true; openPops.delete(histPop); $("histLabel").setAttribute("aria-expanded", "false"); }
+  function drawHistCal() {
+    const pop = $("histCal"), [y, m1] = histMonth.split("-").map(Number), m = m1 - 1, now = today();
+    const count = {};
+    rows.forEach((r) => { const d = createdDay(r); if (d.slice(0, 7) === histMonth) count[d] = (count[d] || 0) + 1; });
+    const total = Object.values(count).reduce((a, b) => a + b, 0);
+    pop.replaceChildren();
+    const head = el("div", "dp-head");
+    const prev = el("button", "dp-nav", "‹"); prev.type = "button"; prev.setAttribute("aria-label", "เดือนก่อน");
+    const next = el("button", "dp-nav", "›"); next.type = "button"; next.setAttribute("aria-label", "เดือนถัดไป");
+    prev.onclick = () => { histMonth = shiftMonth(histMonth, -1); histDay = ""; renderHistory(); };
+    next.onclick = () => { histMonth = shiftMonth(histMonth, 1); histDay = ""; renderHistory(); };
+    head.append(prev, el("span", "dp-title", monthLabel(histMonth)), next);
+    const grid = el("div", "dp-grid");
+    TH_WEEK.forEach((w) => grid.append(el("span", "dp-wd", w)));
+    for (let i = 0; i < new Date(y, m, 1).getDay(); i++) grid.append(el("span"));
+    for (let d = 1, n = new Date(y, m + 1, 0).getDate(); d <= n; d++) {
+      const v = iso(y, m, d), c = count[v] || 0;
+      const b = el("button", "dp-day" + (c ? " has" : "") + (v === histDay ? " on" : "") + (v === now ? " today" : ""), String(d)); b.type = "button";
+      if (c) { b.append(el("span", "cnt", c + " ชุด")); b.title = longDate(v) + " · " + c + " ชุด"; }
+      else b.disabled = true;
+      b.onclick = () => { histDay = histDay === v ? "" : v; renderHistory(); closeHistCal(); };
+      grid.append(b);
+    }
+    const foot = el("div", "dp-foot");
+    const whole = el("button", "btn small", "ทั้งเดือน (" + total + " ชุด)"); whole.type = "button";
+    whole.onclick = () => { histDay = ""; renderHistory(); closeHistCal(); };
+    const t = el("button", "btn small", "วันนี้"); t.type = "button";
+    t.onclick = () => { histMonth = now.slice(0, 7); histDay = now; renderHistory(); closeHistCal(); };
+    foot.append(whole, t);
+    pop.append(head, grid, foot);
+  }
+  $("histLabel").onclick = () => {
+    if (!$("histCal").hidden) { closeHistCal(); return; }
+    openPops.forEach((p) => p.close());
+    drawHistCal(); $("histCal").hidden = false; openPops.add(histPop); $("histLabel").setAttribute("aria-expanded", "true");
+  };
+  $("histPrev").onclick = () => { histMonth = shiftMonth(histMonth, -1); histDay = ""; renderHistory(); };
+  $("histNext").onclick = () => { histMonth = shiftMonth(histMonth, 1); histDay = ""; renderHistory(); };
+  $("histNow").onclick = () => { histAll = false; histDay = ""; histMonth = today().slice(0, 7); renderHistory(); };
   $("histAll").onclick = () => { histAll = !histAll; renderHistory(); };
   $("histQ").addEventListener("input", renderHistory);
 

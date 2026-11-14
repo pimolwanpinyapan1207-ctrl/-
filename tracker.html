@@ -673,7 +673,7 @@ body.on-postal .wrap { display: none; }
     <fieldset class="fieldset" id="fs-doc">
       <legend>ข้อมูลชุดเอกสาร</legend>
       <div class="grid2">
-        <label class="f has-suggest" for="docNo"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น SI000541" aria-describedby="docNoHint" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="docPreList"><ul class="suggest pre-list" id="docPreList" role="listbox" aria-label="ตัวนำหน้าเลขที่" hidden><li role="option" data-pre="SI">SI<span class="s-sub">ใส่หน้าเลขที่</span></li><li role="option" data-pre="SV">SV<span class="s-sub">ใส่หน้าเลขที่</span></li></ul><small class="hint" id="docNoHint" hidden></small></label>
+        <label class="f has-suggest" for="docNo"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" spellcheck="false" placeholder="พิมพ์เลขที่ ไทยหรืออังกฤษ เช่น SI000541" aria-describedby="docNoHint" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="docPreList"><ul class="suggest pre-list" id="docPreList" role="listbox" aria-label="ตัวนำหน้าเลขที่" hidden><li role="option" data-pre="SI">SI<span class="s-sub">ใส่หน้าเลขที่</span></li><li role="option" data-pre="SV">SV<span class="s-sub">ใส่หน้าเลขที่</span></li></ul><small class="hint" id="docNoHint" hidden></small></label>
         <div class="f"><span><label for="customer">ชื่อลูกค้า *</label></span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest" placeholder="พิมพ์ชื่ออำเภอหรือจังหวัด แล้วเลือกจากรายการ">
         </div>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
@@ -1425,21 +1425,23 @@ body.on-postal .wrap { display: none; }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 
-  // document numbers are digits, at most 7 (e.g. 000541); warn live while typing, block saving a bad or duplicate number
-  const DOCNO_MAX = 7;
-  // SI / SV may go in front of the number (e.g. SI000541): clicking the field lists them to pick from, or type them
+  // the document number is typed freely, Thai or English letters, digits and signs (at most DOCNO_MAX characters);
+  // warn live while typing, block saving a too-long or duplicate number
+  const DOCNO_MAX = 30;
+  // SI / SV can be put in front from the list under the field (shown while the field holds no letters yet)
   const PRES = ["SI", "SV"];
   function splitDocNo(v) {
-    const m = String(v || "").trim().match(/^(SI|SV)[\s-]*(.*)$/i);
-    return m ? [m[1].toUpperCase(), m[2].trim()] : ["", String(v || "").trim()];
+    const m = String(v || "").trim().match(/^(SI|SV)(?![A-Za-z])[\s-]*(.*)$/);
+    return m ? [m[1], m[2].trim()] : ["", String(v || "").trim()];
   }
-  const fullDocNo = () => splitDocNo($("docNo").value).join("");
+  const fullDocNo = () => $("docNo").value.trim();
+  const hasLetters = (v) => /[A-Za-z\u0E00-\u0E7F]/.test(v);
   const preList = $("docPreList");
   let preOn = -1;
   function markPre() { [...preList.children].forEach((li, i) => { li.classList.toggle("on", i === preOn); li.setAttribute("aria-selected", String(i === preOn)); }); }
   function openPreList() {
     const inp = $("docNo");
-    if (splitDocNo(inp.value)[0]) return closePreList();   // already has SI / SV
+    if (hasLetters(inp.value)) return closePreList();   // already has SI / SV, or other words typed
     preList.hidden = false;
     const box = preList.parentElement.getBoundingClientRect(), r = inp.getBoundingClientRect();
     preList.style.top = (r.bottom - box.top) + "px";
@@ -1466,14 +1468,10 @@ body.on-postal .wrap { display: none; }
     else if (e.key === "Escape") { closePreList(); e.preventDefault(); e.stopPropagation(); }
   });
   function checkDocNo() {
-    const inp = $("docNo"), raw = inp.value;
-    if (/[a-z]/.test(raw)) { const at = inp.selectionStart; inp.value = raw.toUpperCase(); try { inp.setSelectionRange(at, at); } catch {} }
-    const [pre, v] = splitDocNo(inp.value), full = pre + v;
-    if (document.activeElement === inp) { if (pre) closePreList(); else if (preList.hidden && !/[A-Z]/.test(inp.value)) openPreList(); }
+    const inp = $("docNo"), full = fullDocNo(), v = full;
+    if (document.activeElement === inp) { if (hasLetters(inp.value)) closePreList(); else if (preList.hidden) openPreList(); }
     let msg = "";
-    if (!pre && /[A-Z]/i.test(inp.value)) msg = "ตัวอักษรนำหน้าใส่ได้เฉพาะ SI หรือ SV";
-    else if (v && /\D/.test(v)) msg = "หลัง " + (pre || "SI / SV") + " ต้องเป็นตัวเลขเท่านั้น";
-    else if (v.length > DOCNO_MAX) msg = "เลขที่เกิน " + DOCNO_MAX + " ตัว: ใส่มา " + v.length + " ตัว เกิน " + (v.length - DOCNO_MAX) + " ตัว บันทึกไม่ได้";
+    if (v.length > DOCNO_MAX) msg = "เลขที่ยาวเกิน " + DOCNO_MAX + " ตัวอักษร: ใส่มา " + v.length + " ตัว บันทึกไม่ได้";
     else if (v) {
       const dup = rows.find((r) => r.docNo === full && r.id !== editingId);
       if (dup) msg = "เลขที่ " + full + " มีอยู่แล้ว (" + (dup.customer || "ไม่ระบุลูกค้า") + ")";

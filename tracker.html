@@ -338,10 +338,7 @@ button.hist-month:disabled { cursor: default; background: transparent; border-co
 .co-pick input { accent-color: var(--c); }
 .list-picks { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .media-name { margin-top: 8px; width: 100%; }
-.cust-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
-.cust-pick select { min-width: 0; width: 100%; font-size: .88rem; padding: 6px 8px; }
-.cust-pick select[hidden] { display: none; }
-.cust-pick:has(#custDist[hidden]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
@@ -677,12 +674,7 @@ body.on-postal .wrap { display: none; }
       <legend>ข้อมูลชุดเอกสาร</legend>
       <div class="grid2">
         <label class="f has-suggest" for="docNo"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น SI000541" aria-describedby="docNoHint" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="docPreList"><ul class="suggest pre-list" id="docPreList" role="listbox" aria-label="ตัวนำหน้าเลขที่" hidden><li role="option" data-pre="SI">SI<span class="s-sub">ใส่หน้าเลขที่</span></li><li role="option" data-pre="SV">SV<span class="s-sub">ใส่หน้าเลขที่</span></li></ul><small class="hint" id="docNoHint" hidden></small></label>
-        <div class="f"><span><label for="customer">ชื่อลูกค้า *</label></span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest" placeholder="พิมพ์ชื่อ หรือเลือกด้านล่าง">
-          <div class="cust-pick">
-            <select id="custKind" aria-label="ประเภท สกร."><option value="1">สกร.ระดับอำเภอ</option><option value="0">สกร.ประจำจังหวัด</option></select>
-            <select id="custProv" aria-label="จังหวัด"></select>
-            <select id="custDist" aria-label="อำเภอ"></select>
-          </div>
+        <div class="f"><span><label for="customer">ชื่อลูกค้า *</label></span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest" placeholder="พิมพ์ชื่ออำเภอหรือจังหวัด แล้วเลือกจากรายการ">
         </div>
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
         <div class="f"><span>บริษัท (เลือกได้มากกว่า 1)</span><input type="hidden" id="company"><div class="co-picks" id="coPicks"></div></div>
@@ -1304,8 +1296,6 @@ body.on-postal .wrap { display: none; }
     checkDocNo();
     drawCompanies((r && r.company) || "");
     drawLists((r && r.lists) || "");
-    $("custKind").value = "1"; $("custProv").value = ""; $("custDist").value = "";
-    syncCustPick();
     $("overlay").hidden = false;
     const first = m === "ship" ? "method" : m === "recv" ? "receiver" : "docNo";
     setTimeout(() => $(first).focus(), 30);
@@ -1387,41 +1377,9 @@ body.on-postal .wrap { display: none; }
       else if (e.key === "Escape" && !list.hidden) { e.stopPropagation(); close(); }
     });
   }
-  placeSuggest($("customer"), "cust", () => syncCustPick());
+  placeSuggest($("customer"), "cust");
   placeSuggest($("histQ"), "hist", () => renderHistory());
 
-  // customer pickers under the name box: สกร.ระดับอำเภอ (province, then district) or สกร.ประจำจังหวัด (province only),
-  // every province and district in Thailand; choosing fills the name box, and typing a known name sets the pickers
-  const provOrder = THAI_GEO.p.map((p, i) => [p, i]).sort((a, b) => a[0].localeCompare(b[0], "th"));
-  const opt = (value, text) => { const o = document.createElement("option"); o.value = value; o.textContent = text; return o; };
-  $("custProv").append(opt("", "— เลือกจังหวัด —"), ...provOrder.map(([p, i]) => opt(i, p)));
-  function fillDistricts(pi, chosen) {
-    const sel = $("custDist"); sel.replaceChildren(opt("", pi === "" ? "— เลือกจังหวัดก่อน —" : +pi === 0 ? "— เลือกเขต —" : "— เลือกอำเภอ —"));
-    if (pi !== "") THAI_GEO.d.filter((d) => d[1] === +pi).map((d) => d[0]).sort((a, b) => a.localeCompare(b, "th")).forEach((n) => sel.append(opt(n, n)));
-    sel.value = chosen || ""; sel.disabled = pi === "";
-  }
-  function custFromPick() {
-    const kind = $("custKind").value, pi = $("custProv").value, n = $("custDist").value;
-    if (pi === "") return;
-    let p = null;
-    if (kind === "0") p = PLACES.find((x) => x.kind === 0 && x.name === THAI_GEO.p[+pi]);
-    else if (n) p = PLACES.find((x) => x.kind === 1 && x.name === n && x.prov === THAI_GEO.p[+pi]);
-    if (p) { $("customer").value = p.text; $("customer").dispatchEvent(new Event("change", { bubbles: true })); }
-  }
-  function syncCustPick() {
-    const p = PLACES.find((x) => x.text === $("customer").value.trim());
-    if (p) {
-      $("custKind").value = String(p.kind);
-      $("custProv").value = String(THAI_GEO.p.indexOf(p.kind ? p.prov : p.name));
-    }
-    $("custDist").hidden = $("custKind").value === "0";
-    fillDistricts($("custProv").value, p && p.kind ? p.name : $("custDist").value);
-  }
-  $("custKind").addEventListener("change", () => { syncCustPickFromSelects(); custFromPick(); });
-  $("custProv").addEventListener("change", () => { fillDistricts($("custProv").value, ""); custFromPick(); });
-  $("custDist").addEventListener("change", custFromPick);
-  function syncCustPickFromSelects() { $("custDist").hidden = $("custKind").value === "0"; fillDistricts($("custProv").value, ""); }
-  $("customer").addEventListener("change", () => { if (PLACES.some((x) => x.text === $("customer").value.trim())) syncCustPick(); });
 
   // companies: tick one or more; saved as one text field "A, B" so cards, search and CSV keep working.
   // A name saved before (not in the list) still shows as its own tick box, ticked.

@@ -254,14 +254,10 @@ button.hist-month:disabled { cursor: default; background: transparent; border-co
 .f > input:focus, .f > select:focus, .f > textarea:focus { outline: none; border-color: var(--accent);
   box-shadow: inset 0 1px 3px rgba(25, 20, 45, .08), 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent); }
 .f > select { height: 43px; padding-block: 0; cursor: pointer; }
-/* เลขที่เอกสาร: SI / SV in front of the number (click again to leave it out) */
-
-.f .pre-pick { display: inline-flex; align-self: stretch; border: 1px solid color-mix(in srgb, var(--line) 80%, var(--muted)); border-radius: 10px; overflow: hidden; background: var(--surface); }
-.pre-pick button { font: inherit; font-weight: 700; letter-spacing: .04em; min-width: 46px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
-.pre-pick button + button { border-left: 1px solid var(--line); }
-.pre-pick button:hover { color: var(--ink); background: var(--bg); }
-.pre-pick button[aria-checked="true"] { background: var(--accent); color: #fff; }
-.pre-pick button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* เลขที่เอกสาร: SI / SV list under the field */
+.suggest.pre-list { right: auto; width: 200px; }
+.pre-list li { font-weight: 700; letter-spacing: .04em; }
+.pre-list .s-sub { font-weight: 400; letter-spacing: 0; }
 .f > span { font-weight: 500; color: color-mix(in srgb, var(--ink) 70%, var(--muted)); }
 /* document-set boxes: each box carries its own colour trio; a ticked box fills with full colour */
 .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
@@ -526,18 +522,6 @@ body.on-postal .wrap { display: none; }
   .sheet .f > :first-child, .sheet .f > :not(:first-child) { grid-column: 1; padding-top: 0; }
   .sheet .f.has-suggest > .suggest { left: 0; }
 }
-/* เลขที่เอกสาร: caption | SI SV | number */
-.sheet .f.docno-f { grid-template-columns: 196px auto minmax(0, 1fr); column-gap: 8px; }
-.sheet .f.docno-f > :first-child { grid-column: 1; margin-right: 8px; }
-.sheet .f.docno-f > .pre-pick { grid-column: 2; }
-.sheet .f.docno-f > input { grid-column: 3; }
-.sheet .f.docno-f > .hint { grid-column: 2 / -1; }
-@media (max-width: 560px) {
-  .sheet .f.docno-f { grid-template-columns: auto minmax(0, 1fr); }
-  .sheet .f.docno-f > :first-child, .sheet .f.docno-f > .hint { grid-column: 1 / -1; margin-right: 0; }
-  .sheet .f.docno-f > .pre-pick { grid-column: 1; }
-  .sheet .f.docno-f > input { grid-column: 2; }
-}
 @media (max-width: 760px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat.all { grid-column: span 2; } }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }
@@ -692,7 +676,7 @@ body.on-postal .wrap { display: none; }
     <fieldset class="fieldset" id="fs-doc">
       <legend>ข้อมูลชุดเอกสาร</legend>
       <div class="grid2">
-        <label class="f docno-f" for="docNo"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><span class="pre-pick" id="docPrePick" role="radiogroup" aria-label="ตัวนำหน้าเลขที่"><button type="button" role="radio" data-pre="SI" aria-checked="false">SI</button><button type="button" role="radio" data-pre="SV" aria-checked="false">SV</button></span><input id="docNo" autocomplete="off" inputmode="numeric" placeholder="เช่น 000541" aria-describedby="docNoHint"><small class="hint" id="docNoHint" hidden></small></label>
+        <label class="f has-suggest" for="docNo"><span>เลขที่เอกสาร / ใบแจ้งหนี้ *</span><input id="docNo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="เช่น SI000541" aria-describedby="docNoHint" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="docPreList"><ul class="suggest pre-list" id="docPreList" role="listbox" aria-label="ตัวนำหน้าเลขที่" hidden><li role="option" data-pre="SI">SI<span class="s-sub">ใส่หน้าเลขที่</span></li><li role="option" data-pre="SV">SV<span class="s-sub">ใส่หน้าเลขที่</span></li></ul><small class="hint" id="docNoHint" hidden></small></label>
         <div class="f"><span><label for="customer">ชื่อลูกค้า *</label></span><input id="customer" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="custSuggest" placeholder="พิมพ์ชื่อ หรือเลือกด้านล่าง">
           <div class="cust-pick">
             <select id="custKind" aria-label="ประเภท สกร."><option value="1">สกร.ระดับอำเภอ</option><option value="0">สกร.ประจำจังหวัด</option></select>
@@ -1316,7 +1300,7 @@ body.on-postal .wrap { display: none; }
       : r ? "แก้ไขชุดเบิก " + r.docNo : "เพิ่มชุดเบิก";
     $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
     $("formErr").hidden = true;
-    { const [p, n] = splitDocNo($("docNo").value); setDocPre(r ? p : ""); $("docNo").value = n; }  // a new set starts with neither: SI / SV is picked by hand
+    closePreList();
     checkDocNo();
     drawCompanies((r && r.company) || "");
     drawLists((r && r.lists) || "");
@@ -1485,30 +1469,52 @@ body.on-postal .wrap { display: none; }
 
   // document numbers are digits, at most 7 (e.g. 000541); warn live while typing, block saving a bad or duplicate number
   const DOCNO_MAX = 7;
-  // SI / SV goes in front of the number (saved as e.g. "SI000541"); the number field holds the digits only
+  // SI / SV may go in front of the number (e.g. SI000541): clicking the field lists them to pick from, or type them
   const PRES = ["SI", "SV"];
-  let docPre = "";
-  function setDocPre(p) {
-    docPre = PRES.includes(p) ? p : "";
-    document.querySelectorAll("#docPrePick button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.pre === docPre)));
-  }
   function splitDocNo(v) {
-    const m = String(v || "").trim().match(/^(SI|SV)s*-?s*(.*)$/i);
-    return m ? [m[1].toUpperCase(), m[2]] : ["", String(v || "").trim()];
+    const m = String(v || "").trim().match(/^(SI|SV)[\s-]*(.*)$/i);
+    return m ? [m[1].toUpperCase(), m[2].trim()] : ["", String(v || "").trim()];
   }
-  const fullDocNo = () => docPre + $("docNo").value.trim();
-  $("docPrePick").addEventListener("click", (e) => {
-    const b = e.target.closest("button");
-    if (!b) return;
-    e.preventDefault();
-    setDocPre(docPre === b.dataset.pre ? "" : b.dataset.pre);
+  const fullDocNo = () => splitDocNo($("docNo").value).join("");
+  const preList = $("docPreList");
+  let preOn = -1;
+  function markPre() { [...preList.children].forEach((li, i) => { li.classList.toggle("on", i === preOn); li.setAttribute("aria-selected", String(i === preOn)); }); }
+  function openPreList() {
+    const inp = $("docNo");
+    if (splitDocNo(inp.value)[0]) return closePreList();   // already has SI / SV
+    preList.hidden = false;
+    const box = preList.parentElement.getBoundingClientRect(), r = inp.getBoundingClientRect();
+    preList.style.top = (r.bottom - box.top) + "px";
+    preList.style.left = (r.left - box.left) + "px"; inp.setAttribute("aria-expanded", "true");
+    markPre();
+  }
+  function closePreList() { preList.hidden = true; preOn = -1; $("docNo").setAttribute("aria-expanded", "false"); }
+  function pickPre(pre) {
+    const inp = $("docNo");
+    inp.value = pre + splitDocNo(inp.value)[1];
+    closePreList();
+    inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
     checkDocNo();
-    $("docNo").focus();
+  }
+  preList.addEventListener("mousedown", (e) => e.preventDefault());   // keep focus in the field
+  preList.addEventListener("click", (e) => { const li = e.target.closest("li[data-pre]"); if (li) pickPre(li.dataset.pre); });
+  $("docNo").addEventListener("focus", openPreList);
+  $("docNo").addEventListener("click", openPreList);
+  $("docNo").addEventListener("blur", closePreList);
+  $("docNo").addEventListener("keydown", (e) => {
+    if (preList.hidden) { if (e.key === "ArrowDown") { openPreList(); e.preventDefault(); } return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { preOn = (preOn + (e.key === "ArrowDown" ? 1 : PRES.length - 1 + (preOn < 0 ? 1 : 0))) % PRES.length; markPre(); e.preventDefault(); }
+    else if (e.key === "Enter" && preOn >= 0) { pickPre(PRES[preOn]); e.preventDefault(); }
+    else if (e.key === "Escape") { closePreList(); e.preventDefault(); e.stopPropagation(); }
   });
   function checkDocNo() {
-    const v = $("docNo").value.trim(), full = fullDocNo();
+    const inp = $("docNo"), raw = inp.value;
+    if (/[a-z]/.test(raw)) { const at = inp.selectionStart; inp.value = raw.toUpperCase(); try { inp.setSelectionRange(at, at); } catch {} }
+    const [pre, v] = splitDocNo(inp.value), full = pre + v;
+    if (document.activeElement === inp) { if (pre) closePreList(); else if (preList.hidden && !/[A-Z]/.test(inp.value)) openPreList(); }
     let msg = "";
-    if (v && /\D/.test(v)) msg = "เลขที่เอกสารต้องเป็นตัวเลขเท่านั้น";
+    if (!pre && /[A-Z]/i.test(inp.value)) msg = "ตัวอักษรนำหน้าใส่ได้เฉพาะ SI หรือ SV";
+    else if (v && /\D/.test(v)) msg = "หลัง " + (pre || "SI / SV") + " ต้องเป็นตัวเลขเท่านั้น";
     else if (v.length > DOCNO_MAX) msg = "เลขที่เกิน " + DOCNO_MAX + " ตัว: ใส่มา " + v.length + " ตัว เกิน " + (v.length - DOCNO_MAX) + " ตัว บันทึกไม่ได้";
     else if (v) {
       const dup = rows.find((r) => r.docNo === full && r.id !== editingId);

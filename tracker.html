@@ -210,7 +210,8 @@ button.hist-month:hover, button.hist-month[aria-expanded="true"] { background: v
 button.hist-month:disabled { cursor: default; background: transparent; border-color: transparent; }
 .hist-cal { top: 42px; left: 50%; transform: translateX(-50%); width: 300px; }
 .hist-cal .dp-day { position: relative; padding: 6px 0 12px; }
-.hist-cal .dp-day:disabled { color: var(--muted); opacity: .45; cursor: default; background: transparent; }
+.hist-cal .dp-day { cursor: pointer; }
+.hist-cal .dp-day:not(.has):not(.on) { color: var(--muted); }
 .hist-cal .dp-day .cnt { position: absolute; left: 0; right: 0; bottom: 1px; font-size: .62rem; line-height: 1; color: var(--accent); font-weight: 600; }
 .hist-cal .dp-day.sel .cnt { color: var(--accent-ink); }
 .hist-cal .dp-day.has { font-weight: 600; }
@@ -1001,8 +1002,8 @@ body.on-postal .wrap { display: none; }
     if (histDay && histDay.slice(0, 7) !== histMonth) histDay = "";
     $("histLabel").textContent = histAll ? "ทุกเดือน" : histDay ? longDate(histDay) : monthLabel(histMonth);
     $("histAll").setAttribute("aria-pressed", String(histAll));
-    $("histPrev").disabled = $("histNext").disabled = $("histLabel").disabled = histAll;
-    if (histAll) closeHistCal(); else if (!$("histCal").hidden) drawHistCal();
+    $("histPrev").disabled = $("histNext").disabled = histAll;
+    if (!$("histCal").hidden) drawHistCal();
     const q = $("histQ").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => histAll || (histDay ? createdDay(r) === histDay : createdDay(r).slice(0, 7) === histMonth))
@@ -1016,7 +1017,7 @@ body.on-postal .wrap { display: none; }
     const list = $("histList"); list.replaceChildren();
     if (!shown.length) {
       const e = el("div", "empty-state");
-      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : histDay ? "วันนี้" : "เดือนนี้")));
+      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : histDay ? "วันที่เลือก" : "เดือนนี้")));
       if (!histAll) e.append(el("div", null, "กด ‹ › หรือกดที่ชื่อเดือนเพื่อเปิดปฏิทิน หรือกด “ทุกเดือน”"));
       list.append(e); return;
     }
@@ -1040,8 +1041,8 @@ body.on-postal .wrap { display: none; }
     const head = el("div", "dp-head");
     const prev = el("button", "dp-nav", "‹"); prev.type = "button"; prev.setAttribute("aria-label", "เดือนก่อน");
     const next = el("button", "dp-nav", "›"); next.type = "button"; next.setAttribute("aria-label", "เดือนถัดไป");
-    prev.onclick = () => { histMonth = shiftMonth(histMonth, -1); histDay = ""; renderHistory(); };
-    next.onclick = () => { histMonth = shiftMonth(histMonth, 1); histDay = ""; renderHistory(); };
+    prev.onclick = () => { histAll = false; histMonth = shiftMonth(histMonth, -1); histDay = ""; renderHistory(); };
+    next.onclick = () => { histAll = false; histMonth = shiftMonth(histMonth, 1); histDay = ""; renderHistory(); };
     head.append(prev, el("span", "dp-title", monthLabel(histMonth)), next);
     const grid = el("div", "dp-grid");
     TH_WEEK.forEach((w) => grid.append(el("span", "dp-wd", w)));
@@ -1049,16 +1050,16 @@ body.on-postal .wrap { display: none; }
     for (let d = 1, n = new Date(y, m + 1, 0).getDate(); d <= n; d++) {
       const v = iso(y, m, d), c = count[v] || 0;
       const b = el("button", "dp-day" + (c ? " has" : "") + (v === histDay ? " on" : "") + (v === now ? " today" : ""), String(d)); b.type = "button";
-      if (c) { b.append(el("span", "cnt", c + " ชุด")); b.title = longDate(v) + " · " + c + " ชุด"; }
-      else b.disabled = true;
-      b.onclick = () => { histDay = histDay === v ? "" : v; renderHistory(); closeHistCal(); };
+      b.title = longDate(v) + " · " + (c ? c + " ชุด" : "ไม่มีชุดเบิก");
+      if (c) b.append(el("span", "cnt", c + " ชุด"));
+      b.onclick = () => { histAll = false; histDay = histDay === v ? "" : v; renderHistory(); closeHistCal(); };
       grid.append(b);
     }
     const foot = el("div", "dp-foot");
     const whole = el("button", "btn small", "ทั้งเดือน (" + total + " ชุด)"); whole.type = "button";
-    whole.onclick = () => { histDay = ""; renderHistory(); closeHistCal(); };
+    whole.onclick = () => { histAll = false; histDay = ""; renderHistory(); closeHistCal(); };
     const t = el("button", "btn small", "วันนี้"); t.type = "button";
-    t.onclick = () => { histMonth = now.slice(0, 7); histDay = now; renderHistory(); closeHistCal(); };
+    t.onclick = () => { histAll = false; histMonth = now.slice(0, 7); histDay = now; renderHistory(); closeHistCal(); };
     foot.append(whole, t);
     pop.append(head, grid, foot);
   }

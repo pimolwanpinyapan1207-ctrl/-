@@ -179,6 +179,12 @@ a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text
 .items tbody tr.other input, .items tbody tr.other select { color: #4a5568; cursor: not-allowed; }
 .items td .who { display: block; font-size: .62rem; line-height: 1.1; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px; margin: 0 auto; }
 .items tbody tr.other td .who { color: #718096; }
+/* every 10 rows is one printed page (ใบ): the first row of each page after the first gets a marker */
+.items tbody tr.page-start td { border-top: 3px double var(--accent); }
+.items tbody tr.page-start td:first-child { position: relative; }
+.items td .pg { position: absolute; left: 2px; top: -9px; font-size: .6rem; line-height: 1; padding: 2px 6px; border-radius: 999px; background: var(--accent); color: #fff; white-space: nowrap; z-index: 1; }
+#printSheets { position: absolute; left: -10000px; top: 0; width: 190mm; }
+#printSheets:empty { display: none; }
 .others { font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .notice { padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .9rem; }
 
@@ -345,7 +351,12 @@ table.f.carry { border-top: 0; }
 @media print {
   html, body { background: #fff !important; }
   .app, .wrap { padding: 0; max-width: none; display: block; }
-  .no-print, .items td .who { display: none !important; }
+  .no-print, .items td .who, .items td .pg { display: none !important; }
+  /* more than 10 rows: the form prints as one page per 10 rows (built at print time in #printSheets) */
+  body.multi-print #viewForm .paper-scroll { display: none !important; }
+  #printSheets { position: static; width: auto; }
+  #printSheets .sheet { break-after: page; page-break-after: always; }
+  #printSheets .sheet:last-child { break-after: auto; page-break-after: auto; }
   .items tbody tr.other td { background: transparent !important; }
   .items tbody tr.other input, .items tbody tr.other select { color: inherit; }
   .paper-scroll { overflow: visible; }
@@ -494,6 +505,7 @@ table.f.carry { border-top: 0; }
     </div>
   </div>
   </div>
+  <div id="printSheets" aria-hidden="true"></div>
   </section>
 
   <section class="view report" id="report" hidden>
@@ -700,7 +712,13 @@ function placeRows(rows) {
   }
 }
 function giveUids(items) { (items || []).forEach((it, i) => { if (filled(it) && !it.uid) it.uid = 'L' + i + ':' + (it.code || it.to || it.fee); }); return items; }
-function padItems(items) { const out = (items || []).map(it => ({ ...blankItem(), ...it })); while (out.length < ROWS) out.push(blankItem()); return out; }
+function padItems(items) { const out = (items || []).map(it => ({ ...blankItem(), ...it })); while (out.length < ROWS || out.length % ROWS) out.push(blankItem()); return out; }
+// the last row of the last page is filled → a new page of 10 empty rows comes in at once
+function ensureRoom() {
+  if (!filled(slip.items[slip.items.length - 1])) return false;
+  for (let k = 0; k < ROWS; k++) slip.items.push(blankItem());
+  return true;
+}
 const filledUids = items => (items || []).filter(filled).map(it => it.uid).filter(Boolean);
 function extraRows(remoteItems, localItems, base) {
   const have = new Set(filledUids(localItems)), seen = new Set(base || []);
@@ -772,8 +790,12 @@ const sheet = $('sheet');
 // the table has ROWS rows, more when several computers' rows were merged into one slip (or "+ เพิ่มแถว")
 function buildRows(n) {
   const body = $('itemRows');
-  if (body.children.length === n) return;
-  body.innerHTML = Array.from({ length: n }, (_, i) => `
+  // add or take away rows at the end only, so the row being typed in keeps its cursor
+  while (body.children.length > n) body.lastElementChild.remove();
+  const from = body.children.length;
+  if (from === n) return;
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = Array.from({ length: n - from }, (_, j) => from + j).map(i => `
   <tr>
     <td class="ctr">${i + 1}<span class="who"></span></td>
     <td class="in"><input data-i="${i}" data-k="to" aria-label="ผู้รับ แถว ${i + 1}"></td>
@@ -783,7 +805,8 @@ function buildRows(n) {
     <td class="in"><input data-i="${i}" data-k="fee" class="num" inputmode="decimal" aria-label="ค่าบริการ แถว ${i + 1}"></td>
     <td class="in"><input data-i="${i}" data-k="note" aria-label="หมายเหตุ แถว ${i + 1}"></td>
   </tr>`).join('');
-  body.querySelectorAll('[data-k="to"]').forEach(wirePlace);
+  tmp.querySelectorAll('[data-k="to"]').forEach(wirePlace);
+  body.append(...tmp.children);
 }
 buildRows(ROWS);
 $('sumRows').innerHTML = TYPES.map(t => `
@@ -792,6 +815,7 @@ $('sumRows').innerHTML = TYPES.map(t => `
   <td class="in"><input class="num" data-ov="all:${t}" inputmode="decimal" aria-label="รวมเงิน ${t}"></td></tr>`).join('');
 
 function fill() {
+  ensureRoom();
   buildRows(slip.items.length);
   sheet.querySelectorAll('[data-f]').forEach(el => { el.value = slip[el.dataset.f] ?? ''; });
   $('dateText').value = isoToDmy(slip.date);
@@ -800,6 +824,58 @@ function fill() {
   sheet.querySelectorAll('[data-intl]').forEach(el => { el.value = slip.intl[el.dataset.intl] ?? ''; });
   sheet.querySelectorAll('[data-k="to"], [data-f="sender"], [data-f="clerk"]').forEach(fitText);
   refresh();
+}
+// ---- one printed page (ใบ) per 10 rows (ROWS) ----
+// page k's เลขที่: เลขที่ + k when it ends in a number (keeping its zeros), otherwise เลขที่/k+1
+function pageNo(k) {
+  const no = String(slip.no || '').trim();
+  if (!k || !no) return no;
+  const m = no.match(/^(.*?)(\d+)$/);
+  if (!m) return no + '/' + (k + 1);
+  return m[1] + String(Number(m[2]) + k).padStart(m[2].length, '0');
+}
+// more than 10 filled rows → a copy of the form for each 10 rows, each with its own เลขที่, piece count and
+// totals; ลำดับ runs on (11, 12, …). ยอดยกมา and ไปรษณียภัณฑ์ธรรมดา go on the first page; typed summary
+// numbers, ต่างประเทศ and the amount in words on the last.
+function buildPrintPages() {
+  const box = $('printSheets');
+  box.innerHTML = '';
+  const lastFilled = slip.items.map(filled).lastIndexOf(true);
+  const pages = Math.max(1, Math.ceil((lastFilled + 1) / ROWS));
+  document.body.classList.toggle('multi-print', pages > 1);
+  if (pages < 2) return;
+  for (let k = 0; k < pages; k++) {
+    const first = k === 0, last = k === pages - 1;
+    const chunk = slip.items.slice(k * ROWS, k * ROWS + ROWS);
+    const page = { ...slip, items: chunk, ov: last ? (slip.ov || {}) : {}, exPieces: '', exFee: first ? slip.exFee : '', intl: last ? (slip.intl || {}) : {} };
+    const c = compute(page);
+    const el = sheet.cloneNode(true);
+    el.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    el.removeAttribute('id');
+    el.querySelectorAll('.suggest, .no-print, .pg, .who').forEach(n => n.remove());
+    el.querySelectorAll('tr.page-start, tr.other').forEach(n => n.classList.remove('page-start', 'other'));
+    [...el.querySelector('.items tbody').children].forEach((tr, i) => { if (i < k * ROWS || i >= k * ROWS + ROWS) tr.remove(); });
+    el.querySelectorAll('[data-f]').forEach(n => { n.value = slip[n.dataset.f] ?? ''; });
+    el.querySelector('[data-f="no"]').value = pageNo(k);
+    el.querySelector('[data-f="carryIn"]').value = first ? (slip.carryIn ?? '') : '';
+    el.querySelector('[data-f="words"]').value = last ? (slip.words ?? '') : '';
+    el.querySelector('[data-f="exFee"]').value = first ? (slip.exFee ?? '') : '';
+    const cnt = chunk.filter(it => it.to || it.code || num(it.fee)).length;
+    el.querySelector('[data-f="exPieces"]').value = cnt ? String(cnt) : '';
+    el.querySelector('.pieces').textContent = cnt ? `${cnt} ชิ้น` : '';
+    el.querySelector('.items tfoot .num.b').textContent = money(c.grand);
+    el.querySelector('.print-only').textContent = thaiDate(slip.date);
+    el.querySelectorAll('[data-i]').forEach(n => { n.value = slip.items[n.dataset.i]?.[n.dataset.k] ?? ''; n.readOnly = false; n.disabled = false; });
+    el.querySelectorAll('[data-intl]').forEach(n => { n.value = page.intl[n.dataset.intl] ?? ''; });
+    const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: 0, thisTime: 0, carryOut: 0 };
+    TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = 0; });
+    el.querySelectorAll('[data-ov]').forEach(n => {
+      const typed = String(page.ov[n.dataset.ov] ?? '').trim();
+      n.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[n.dataset.ov]);
+    });
+    box.append(el);
+  }
+  box.querySelectorAll('[data-k="to"], [data-f="sender"], [data-f="clerk"]').forEach(fitText);
 }
 // on a new form every computer sees all the rows as they are keyed: its own, and the others' greyed with their
 // computer's name (those are changed on the computer that keyed them). A saved slip is open to edit everywhere.
@@ -813,6 +889,11 @@ function markRows() {
     tr.querySelector('.who').textContent = live && filled(it) && it.from ? (it.from === MACHINE ? 'เครื่องนี้' : nameOf(it.from)) : '';
     tr.querySelectorAll('input').forEach(el => { el.readOnly = other; });
     tr.querySelectorAll('select').forEach(el => { el.disabled = other; });
+    const start = i > 0 && i % ROWS === 0;
+    tr.classList.toggle('page-start', start);
+    let pg = tr.querySelector('.pg');
+    if (start && !pg) { pg = document.createElement('span'); pg.className = 'pg'; tr.firstElementChild.prepend(pg); }
+    if (pg) { if (start) { pg.textContent = 'ใบที่ ' + (i / ROWS + 1); pg.title = pageNo(i / ROWS) ? 'พิมพ์เป็นเลขที่ ' + pageNo(i / ROWS) : ''; } else pg.remove(); }
     tr.title = other ? `คีย์จาก ${nameOf(it.from)} · แก้ได้ที่เครื่องนั้น` : '';
   });
   $('machineName').textContent = '🖥 ' + machineName;
@@ -871,6 +952,7 @@ sheet.addEventListener('input', e => {
     }
     it[el.dataset.k] = el.value;
     if (!it.uid && filled(it)) { it.uid = newUid(); it.from = MACHINE; }
+    if (ensureRoom()) buildRows(slip.items.length);
     // ทุกชุดส่ง EMS เป็นหลัก: ใส่ประเภทให้เองเมื่อเริ่มกรอกแถว
     if (el.dataset.k !== 'type' && !it.type && (it.to || it.code || it.fee)) {
       it.type = 'EMS';
@@ -1028,7 +1110,9 @@ const saveAndNext = () => save().then(ok => { if (ok) startFresh(ok); });
 window.addEventListener('beforeprint', () => {
   if (document.body.classList.contains('printing-report') || $('viewForm').hidden) return;
   if (sortForPrint()) { dirty = true; fill(); }
+  buildPrintPages();
 });
+window.addEventListener('afterprint', () => { $('printSheets').innerHTML = ''; document.body.classList.remove('multi-print'); });
 $('btnSave').onclick = saveAndNext;
 $('machineName').onclick = () => {
   const v = prompt('ชื่อเครื่องนี้ (เครื่องอื่นจะเห็นชื่อนี้ที่แถวที่คีย์จากเครื่องนี้)', machineName);

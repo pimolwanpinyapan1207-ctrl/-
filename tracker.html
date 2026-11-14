@@ -1316,8 +1316,7 @@ body.on-postal .wrap { display: none; }
       : r ? "แก้ไขชุดเบิก " + r.docNo : "เพิ่มชุดเบิก";
     $("delBtn").hidden = !(r && m === "full"); $("delBtn").textContent = "ลบรายการนี้";
     $("formErr").hidden = true;
-    { const [p, n] = splitDocNo($("docNo").value); let last = ""; try { last = localStorage.getItem("docPre") || ""; } catch {}
-      setDocPre(r ? p : last); $("docNo").value = n; }
+    { const [p, n] = splitDocNo($("docNo").value); setDocPre(r ? p : ""); $("docNo").value = n; }  // a new set starts with neither: SI / SV is picked by hand
     checkDocNo();
     drawCompanies((r && r.company) || "");
     drawLists((r && r.lists) || "");
@@ -1503,7 +1502,6 @@ body.on-postal .wrap { display: none; }
     if (!b) return;
     e.preventDefault();
     setDocPre(docPre === b.dataset.pre ? "" : b.dataset.pre);
-    try { localStorage.setItem("docPre", docPre); } catch {}
     checkDocNo();
     $("docNo").focus();
   });

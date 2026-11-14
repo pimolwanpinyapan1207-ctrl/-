@@ -635,7 +635,7 @@ body.on-postal .wrap { display: none; }
         <button class="btn small" type="button" id="histNow">เดือนนี้</button>
         <button class="btn small" type="button" id="histAll" aria-pressed="false">ทุกเดือน</button>
       </div>
-      <input type="search" id="histQ" placeholder="ค้นหาเลขที่ ลูกค้า บริษัท เลขพัสดุ หรือผู้รับ">
+      <input type="search" id="histQ" placeholder="พิมพ์ชื่อลูกค้า เพื่อดูงานทั้งหมดของชื่อนั้น (หรือเลขที่ บริษัท เลขพัสดุ ผู้รับ)">
     </div>
     <p class="hist-sum" id="histSum"></p>
     <div class="list" id="histList"></div>
@@ -1009,25 +1009,27 @@ body.on-postal .wrap { display: none; }
   function renderHistory() {
     if ($("historyView").hidden) return;
     if (histDay && histDay.slice(0, 7) !== histMonth) histDay = "";
-    $("histLabel").textContent = histAll ? "ทุกเดือน" : histDay ? longDate(histDay) : monthLabel(histMonth);
-    $("histAll").setAttribute("aria-pressed", String(histAll));
-    $("histPrev").disabled = $("histNext").disabled = histAll;
-    if (!$("histCal").hidden) drawHistCal();
     const q = $("histQ").value.trim().toLowerCase();
+    // typing a name (or number) searches every month, so all of that customer's sets come up together
+    const every = histAll || !!q;
+    $("histLabel").textContent = q && !histAll ? "ทุกเดือน (ค้นหา)" : histAll ? "ทุกเดือน" : histDay ? longDate(histDay) : monthLabel(histMonth);
+    $("histAll").setAttribute("aria-pressed", String(every));
+    $("histPrev").disabled = $("histNext").disabled = every;
+    if (!$("histCal").hidden) drawHistCal();
     const shown = rows
-      .filter((r) => histAll || (histDay ? createdDay(r) === histDay : createdDay(r).slice(0, 7) === histMonth))
+      .filter((r) => every || (histDay ? createdDay(r) === histDay : createdDay(r).slice(0, 7) === histMonth))
       .filter((r) => !q || [r.docNo, r.customer, r.company, r.lists, r.listsMedia, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => createdDay(b).localeCompare(createdDay(a)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     const n = { wait: 0, move: 0, late: 0, done: 0 };
     shown.forEach((r) => n[statusOf(r)]++);
     $("histSum").textContent = shown.length
-      ? shown.length + " ชุด · ส่งออกแล้ว " + (n.move + n.late + n.done) + " · ลูกค้าได้รับแล้ว " + n.done + " · ยังไม่ส่งออก " + n.wait
+      ? (q ? "“" + $("histQ").value.trim() + "” ทั้งหมด " : "") + shown.length + " ชุด · ส่งออกแล้ว " + (n.move + n.late + n.done) + " · ลูกค้าได้รับแล้ว " + n.done + " · ยังไม่ส่งออก " + n.wait
       : "";
     const list = $("histList"); list.replaceChildren();
     if (!shown.length) {
       const e = el("div", "empty-state");
-      e.append(el("h2", null, q ? "ไม่พบรายการที่ค้นหา" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : histDay ? "วันที่เลือก" : "เดือนนี้")));
-      if (!histAll) e.append(el("div", null, "กด ‹ › หรือกดที่ชื่อเดือนเพื่อเปิดปฏิทิน หรือกด “ทุกเดือน”"));
+      e.append(el("h2", null, q ? "ไม่พบชุดเบิกของ “" + $("histQ").value.trim() + "”" : "ไม่มีชุดเบิกใน" + (histAll ? "ระบบ" : histDay ? "วันที่เลือก" : "เดือนนี้")));
+      if (!every) e.append(el("div", null, "กด ‹ › หรือกดที่ชื่อเดือนเพื่อเปิดปฏิทิน หรือกด “ทุกเดือน”"));
       list.append(e); return;
     }
     let day = "";
@@ -1345,6 +1347,17 @@ body.on-postal .wrap { display: none; }
     const show = () => {
       const q = inp.value.trim(), nq = norm(q), nb = norm(bare(q));
       list.replaceChildren(); opts = []; active = -1;
+      if (key === "hist") {
+        // customers (and receivers) that have sets, most sets first
+        const count = new Map();
+        rows.forEach((r) => [r.customer, r.receiver].forEach((nm) => { nm = String(nm || "").trim(); if (nm) count.set(nm, (count.get(nm) || 0) + 1); }));
+        [...count].filter(([nm]) => nq && (norm(nm).includes(nq) || (nb && norm(bare(nm)).includes(nb))))
+          .sort((a, b) => norm(b[0]).startsWith(nq) - norm(a[0]).startsWith(nq) || b[1] - a[1] || a[0].localeCompare(b[0], "th"))
+          .slice(0, 12).forEach(([nm, c]) => addOpt(nm, c + " ชุด", nm, q));
+        if (!opts.length) return close();
+        list.hidden = false; inp.setAttribute("aria-expanded", "true");
+        return;   // nothing pre-selected: Enter keeps searching what was typed
+      }
       const places = !nb ? [] : PLACES.filter((p) => norm(p.name).includes(nb) || norm(p.full || p.text).includes(nq))
         .sort((a, b) => norm(b.name).startsWith(nb) - norm(a.name).startsWith(nb) || a.kind - b.kind || a.name.localeCompare(b.name, "th"))
         .slice(0, 12);

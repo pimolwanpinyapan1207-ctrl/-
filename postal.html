@@ -312,6 +312,8 @@ table.f.carry { border-top: 0; }
 .tcal-grid button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .tcal-foot { display: flex; justify-content: center; margin-top: 8px; }
 .mp-pop { width: 300px; }
+.add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; font-family: var(--body); }
+.add-row .hint { font-size: .8rem; color: var(--muted); }
 .mp-days button { height: 40px; display: grid; align-content: center; justify-items: center; gap: 0; line-height: 1.1; color: var(--muted); }
 .mp-days button.has { color: var(--ink); font-weight: 600; }
 .mp-days button small { font-size: .62rem; color: var(--accent); font-weight: 600; }
@@ -449,6 +451,7 @@ table.f.carry { border-top: 0; }
         </tr>
       </tfoot>
     </table>
+    <div class="add-row no-print"><button type="button" class="btn small" id="btnAddRow">+ เพิ่มแถว</button><span class="hint">หลายเครื่องกรอกใบเดียวกันได้: เปิดใบเดิมจาก “รายการย้อนหลัง” หรือใส่เล่ม/เลขที่เดียวกัน แล้วกดบันทึก ระบบจะรวมรายการให้ · ตอนพิมพ์เรียงตามเลขที่บริการ</span></div>
 
     <div class="s-bottom">
       <div>
@@ -659,6 +662,32 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 
 // ---------- slip model ----------
 const blankItem = () => ({ to: '', dest: '', type: '', code: '', fee: '', note: '' });
+// ---------- several computers filling one slip ----------
+// Each filled row carries a uid. Saving a slip first reads the copy in the database and keeps the rows another
+// computer added since this one opened it; rows deleted on this screen stay deleted (their uid is in slip.base,
+// the rows this screen started from). Rows saved before uids existed get one from their place and content,
+// so every computer gives them the same uid.
+const filled = it => !!(it && (it.to || it.dest || it.code || String(it.fee ?? '').trim() || it.note));
+const newUid = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function giveUids(items) { (items || []).forEach((it, i) => { if (filled(it) && !it.uid) it.uid = 'L' + i + ':' + (it.code || it.to || it.fee); }); return items; }
+function padItems(items) { const out = (items || []).map(it => ({ ...blankItem(), ...it })); while (out.length < ROWS) out.push(blankItem()); return out; }
+const filledUids = items => (items || []).filter(filled).map(it => it.uid).filter(Boolean);
+function extraRows(remoteItems, localItems, base) {
+  const have = new Set(filledUids(localItems)), seen = new Set(base || []);
+  return giveUids((remoteItems || []).map(it => ({ ...it }))).filter(it => filled(it) && !have.has(it.uid) && !seen.has(it.uid));
+}
+function mergeItems(remoteItems, localItems, base) {
+  return padItems(localItems.filter(filled).concat(extraRows(remoteItems, localItems, base)));
+}
+// printing lists the rows by เลขที่บริการ (rows without one go last, in their order); returns true if the order changed
+function sortForPrint() {
+  const rows = slip.items.filter(filled);
+  const sorted = rows.filter(it => it.code).sort((a, b) => a.code.localeCompare(b.code)).concat(rows.filter(it => !it.code));
+  const key = list => list.filter(filled).map(it => (it.uid || '') + '|' + it.code).join(',');
+  if (key(sorted) === key(slip.items) && slip.items.slice(0, rows.length).every(filled)) return false;
+  slip.items = padItems(sorted);
+  return true;
+}
 function compute(s) {
   const dom = Object.fromEntries(TYPES.map(t => [t, 0]));
   let pieces = 0;
@@ -695,7 +724,7 @@ function freshSlip() {
     book: last?.book || '', no: '',
     company: '', unit: '', permit: '', office: 'วารินชำราบ', sender: '', clerk: '', words: '',
     round: '',
-    items: Array.from({ length: ROWS }, blankItem),
+    items: Array.from({ length: ROWS }, blankItem), base: [],
     exPieces: '', exFee: '', intl: {},
     carryIn: '',  // typed by hand, not carried over
   };
@@ -710,7 +739,11 @@ try { localStorage.removeItem(KEY_DRAFT); } catch {}
 // ---------- build the form ----------
 const $ = id => document.getElementById(id);
 const sheet = $('sheet');
-$('itemRows').innerHTML = Array.from({ length: ROWS }, (_, i) => `
+// the table has ROWS rows, more when several computers' rows were merged into one slip (or "+ เพิ่มแถว")
+function buildRows(n) {
+  const body = $('itemRows');
+  if (body.children.length === n) return;
+  body.innerHTML = Array.from({ length: n }, (_, i) => `
   <tr>
     <td class="ctr">${i + 1}</td>
     <td class="in"><input data-i="${i}" data-k="to" aria-label="ผู้รับ แถว ${i + 1}"></td>
@@ -720,12 +753,16 @@ $('itemRows').innerHTML = Array.from({ length: ROWS }, (_, i) => `
     <td class="in"><input data-i="${i}" data-k="fee" class="num" inputmode="decimal" aria-label="ค่าบริการ แถว ${i + 1}"></td>
     <td class="in"><input data-i="${i}" data-k="note" aria-label="หมายเหตุ แถว ${i + 1}"></td>
   </tr>`).join('');
+  body.querySelectorAll('[data-k="to"]').forEach(wirePlace);
+}
+buildRows(ROWS);
 $('sumRows').innerHTML = TYPES.map(t => `
   <tr><td>${t}</td><td class="in"><input class="num" data-ov="dom:${t}" inputmode="decimal" aria-label="ในประเทศ ${t}"></td>
   <td class="in"><input data-intl="${t}" class="num" inputmode="decimal" aria-label="ต่างประเทศ ${t}"></td>
   <td class="in"><input class="num" data-ov="all:${t}" inputmode="decimal" aria-label="รวมเงิน ${t}"></td></tr>`).join('');
 
 function fill() {
+  buildRows(slip.items.length);
   sheet.querySelectorAll('[data-f]').forEach(el => { el.value = slip[el.dataset.f] ?? ''; });
   $('dateText').value = isoToDmy(slip.date);
   $('dateText').classList.remove('bad');
@@ -776,6 +813,7 @@ sheet.addEventListener('input', e => {
       el.setSelectionRange(pos, pos);
     }
     it[el.dataset.k] = el.value;
+    if (!it.uid && filled(it)) it.uid = newUid();
     // ทุกชุดส่ง EMS เป็นหลัก: ใส่ประเภทให้เองเมื่อเริ่มกรอกแถว
     if (el.dataset.k !== 'type' && !it.type && (it.to || it.code || it.fee)) {
       it.type = 'EMS';
@@ -813,17 +851,41 @@ async function save() {
   if (saving) return false;
   // the date starts empty and is picked by hand; history and the daily report need it
   if (!slip.date) { toast('กรุณาใส่ วัน/เดือน/ปี ก่อนบันทึก', true); $('dateText').focus(); return false; }
+  // same เล่ม/เลขที่ already saved (e.g. started on another computer): add this screen's rows to that slip
   const dup = slips.find(s => s.id !== slip.id && s.no && s.no === slip.no && (s.book || '') === (slip.book || ''));
-  if (dup && !confirm(`มีใบนำส่ง เล่ม ${slip.book || '-'} เลขที่ ${slip.no} อยู่แล้ว\nบันทึกซ้ำเลขเดิมใช่ไหม?`)) return false;
+  if (dup) {
+    if (!confirm(`มีใบนำส่ง เล่ม ${slip.book || '-'} เลขที่ ${slip.no} อยู่แล้ว (อาจกรอกจากเครื่องอื่น)\nกด OK เพื่อรวมรายการในหน้านี้เข้ากับใบเดิม · กด Cancel เพื่อกลับไปแก้`)) return false;
+    // the header keeps what is typed here; blanks are filled from the saved slip
+    for (const [k, v] of Object.entries(dup)) {
+      if (['id', 'items', 'intl', 'ov', 'savedAt', 'base'].includes(k)) continue;
+      if (!String(slip[k] ?? '').trim() && v) slip[k] = v;
+    }
+    slip.id = dup.id;
+    slip.items = mergeItems(dup.items, slip.items, []);
+    slip.base = [];
+  }
   const bad = slip.items.filter(it => it.code && !TRACK_RE.test(it.code)).length;
   if (bad && !confirm(`เลขที่บริการ ${bad} รายการไม่ครบ 13 หลัก (เช่น EX123456789TH)\nบันทึกต่อไหม?`)) return false;
   if (!slip.id) slip.id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  slip.savedAt = Date.now();
-  const copy = JSON.parse(JSON.stringify(slip));
   let msg = '✓ บันทึกแล้ว', warn = false;
   if (cloud) {
     saving = true;
     $('status').textContent = 'กำลังบันทึก…';
+    // rows another computer saved into this slip since it was opened here are kept
+    try {
+      const latest = await cloudGet(slip.id);
+      if (latest) {
+        const more = extraRows(latest.items, slip.items, slip.base).length;
+        slip.items = mergeItems(latest.items, slip.items, slip.base);
+        if (more) msg = `✓ บันทึกแล้ว · รวมรายการจากเครื่องอื่น ${more} แถว`;
+      }
+    } catch { /* offline: saved as it is on screen */ }
+  }
+  slip.savedAt = Date.now();
+  slip.base = filledUids(slip.items);
+  const copy = JSON.parse(JSON.stringify(slip));
+  delete copy.base;
+  if (cloud) {
     try { await cloudPut(copy); }
     catch (err) {
       // no permission yet (or offline): keep it on this computer; it goes up the next time the page opens
@@ -837,20 +899,24 @@ async function save() {
   if (i >= 0) slips[i] = copy; else slips.push(copy);
   store(KEY_SLIPS, slips);
   dirty = false;
-  refresh();
+  fill();  // rows from other computers may have been added
   toast(msg, warn);
-  return true;
+  return msg;
 }
 function openSlip(id) {
   if (dirty && !confirm('ใบที่กำลังกรอกยังไม่ได้บันทึก เปิดใบอื่นเลยไหม?')) return;
   const s = slips.find(x => x.id === id);
   if (!s) return;
+  loadSlip(s);
+  showView('form');
+}
+function loadSlip(s) {
   slip = JSON.parse(JSON.stringify(s));
-  slip.items = Array.from({ length: ROWS }, (_, i) => ({ ...blankItem(), ...(slip.items[i] || {}) }));
+  slip.items = giveUids(padItems(slip.items));
+  slip.base = filledUids(slip.items);
   slip.intl = slip.intl || {};
   dirty = false;
   fill();
-  showView('form');
 }
 async function remove(id) {
   const s = slips.find(x => x.id === id);
@@ -887,17 +953,32 @@ $('btnClear').onclick = () => {
   toast('ล้างฟอร์มแล้ว');
 };
 // after a save the page moves on to a blank form, ready for the next set
-function startFresh() {
+function startFresh(msg) {
   slip = freshSlip(); dirty = false;
   fill();
   showView('form');
   $('companyInput').focus({ preventScroll: true });
-  toast('✓ บันทึกแล้ว · พร้อมกรอกใบใหม่');
+  toast((typeof msg === 'string' ? msg : '✓ บันทึกแล้ว') + ' · พร้อมกรอกใบใหม่');
 }
-// "บันทึก" saves and moves on to a blank form; "พิมพ์" prints what is on screen and changes nothing
-const saveAndNext = () => save().then(ok => { if (ok) startFresh(); });
+// "บันทึก" saves and moves on to a blank form; "พิมพ์" adds rows other computers saved, sorts by เลขที่บริการ, then prints
+$('btnAddRow').onclick = () => {
+  slip.items.push(blankItem());
+  fill();
+  sheet.querySelector(`[data-i="${slip.items.length - 1}"][data-k="to"]`).focus();
+};
+const saveAndNext = () => save().then(ok => { if (ok) startFresh(ok); });
+// printing (button or Ctrl+P) puts the rows in เลขที่บริการ order first; the daily report prints as it is
+window.addEventListener('beforeprint', () => {
+  if (document.body.classList.contains('printing-report') || $('viewForm').hidden) return;
+  if (sortForPrint()) { dirty = true; fill(); }
+});
 $('btnSave').onclick = saveAndNext;
-$('btnPrint').onclick = () => { showView('form'); window.print(); };
+$('btnPrint').onclick = async () => {
+  showView('form');
+  const n = await pullLatest();
+  if (n > 0) toast(`รวมรายการจากเครื่องอื่น ${n} แถวก่อนพิมพ์`);
+  window.print();
+};
 // Ctrl+S = บันทึก
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveAndNext(); }
@@ -1317,7 +1398,7 @@ function pickPlace(p) {
   }
   closePlaces();
 }
-sheet.querySelectorAll('[data-k="to"]').forEach(inp => {
+function wirePlace(inp) {
   inp.setAttribute('role', 'combobox');
   inp.setAttribute('aria-autocomplete', 'list');
   inp.setAttribute('aria-controls', 'placeList');
@@ -1331,7 +1412,7 @@ sheet.querySelectorAll('[data-k="to"]').forEach(inp => {
     else if (e.key === 'Enter' && !e.shiftKey) pickPlace(plOpts[plActive]);
     else if (e.key === 'Escape') closePlaces();
   });
-});
+}
 plList.addEventListener('mousedown', e => {
   const li = e.target.closest('li');
   if (li) { e.preventDefault(); pickPlace(plOpts[+li.dataset.n]); }
@@ -1377,6 +1458,11 @@ async function cloudPut(s) {
     throw err;
   } finally { savePending(); }
 }
+async function cloudGet(id) {
+  const { data, error } = await sb.from('docsets').select('data').eq('id', PREFIX + id).maybeSingle();
+  if (error) throw error;
+  return data ? data.data : null;
+}
 async function cloudDel(id) {
   pending.delete(id);
   savePending();
@@ -1406,8 +1492,36 @@ function refetchSoon() {  // someone else saved or deleted: refresh the list, ke
     if (!remote) return;
     slips = withPending(remote);
     store(KEY_SLIPS, slips);
+    const n = slip.id ? takeRemote(remote.find(s => s.id === slip.id)) : 0;
     refresh();
+    if (n > 0) toast(`มีรายการจากเครื่องอื่นเพิ่มเข้ามา ${n} แถว`);
   }, 400);
+}
+// another computer saved the slip that is open here: show its rows. Nothing typed here yet → load its copy;
+// otherwise add its new rows into empty rows below this screen's (the row being typed in is left alone).
+// Returns how many rows were added (-1 = reloaded).
+function takeRemote(remoteSlip) {
+  if (!remoteSlip || (remoteSlip.savedAt || 0) <= (slip.savedAt || 0)) return 0;
+  if (!dirty) { loadSlip(remoteSlip); return -1; }
+  const extra = extraRows(remoteSlip.items, slip.items, slip.base);
+  slip.base = [...new Set([...(slip.base || []), ...filledUids(giveUids((remoteSlip.items || []).map(it => ({ ...it }))))])];
+  slip.savedAt = remoteSlip.savedAt;
+  if (!extra.length) return 0;
+  const items = slip.items, busy = Number(document.activeElement?.dataset?.i ?? -1);
+  let k = items.length;
+  while (k > 0 && !filled(items[k - 1])) k--;
+  for (const it of extra) {
+    while (k === busy) k++;
+    if (k < items.length) items[k] = { ...blankItem(), ...it }; else items.push({ ...blankItem(), ...it });
+    k++;
+  }
+  fill();
+  return extra.length;
+}
+// before printing: pick up rows other computers saved into this slip, so the print has every row
+async function pullLatest() {
+  if (!cloud || !slip.id) return 0;
+  try { return takeRemote(await cloudGet(slip.id)); } catch { return 0; }
 }
 // เมนู "รีเฟรชข้อมูล": send any slips still waiting, then pull the shared list again; the form on screen is left alone
 let reloading = false;

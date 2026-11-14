@@ -1425,9 +1425,8 @@ body.on-postal .wrap { display: none; }
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 
-  // the document number is typed freely, Thai or English letters, digits and signs (at most DOCNO_MAX characters);
-  // warn live while typing, block saving a too-long or duplicate number
-  const DOCNO_MAX = 30;
+  // the document number is typed freely, Thai or English letters, digits and signs, any length;
+  // warn live while typing, block saving a duplicate number
   // SI / SV can be put in front from the list under the field (shown while the field holds no letters yet)
   const PRES = ["SI", "SV"];
   function splitDocNo(v) {
@@ -1471,8 +1470,7 @@ body.on-postal .wrap { display: none; }
     const inp = $("docNo"), full = fullDocNo(), v = full;
     if (document.activeElement === inp) { if (hasLetters(inp.value)) closePreList(); else if (preList.hidden) openPreList(); }
     let msg = "";
-    if (v.length > DOCNO_MAX) msg = "เลขที่ยาวเกิน " + DOCNO_MAX + " ตัวอักษร: ใส่มา " + v.length + " ตัว บันทึกไม่ได้";
-    else if (v) {
+    if (v) {
       const dup = rows.find((r) => r.docNo === full && r.id !== editingId);
       if (dup) msg = "เลขที่ " + full + " มีอยู่แล้ว (" + (dup.customer || "ไม่ระบุลูกค้า") + ")";
     }

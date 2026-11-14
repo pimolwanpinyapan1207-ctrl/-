@@ -126,6 +126,11 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .step .t { font-size: .75rem; color: var(--muted); letter-spacing: .02em; }
 .step .d { font-weight: 600; font-variant-numeric: tabular-nums; font-size: .9rem; }
 .step .w { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; padding-right: 6px; }
+.step .w .got { display: block; color: var(--ok, #1f7a4d); font-size: .88rem; }
+.step .w .got-line { display: block; color: var(--ink); }
+.step .w .sig { display: inline-block; margin-top: 4px; border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 2px 4px; }
+.step .w .sig img { display: block; max-width: 140px; max-height: 56px; }
+.step .w .got-src { display: block; margin-top: 2px; font-size: .75rem; }
 .step.empty .d { color: var(--muted); font-weight: 400; }
 .cardacts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 
@@ -886,7 +891,7 @@ body.on-postal .wrap { display: none; }
   // Sets normally go by EMS, so any tracking number links to Thailand Post unless another carrier was chosen
   const isPost = (r) => !!r.tracking && !/Kerry|แมสเซ็นเจอร์|ส่งเอง|มารับ/.test(r.method || "");
   const postUrl = (t) => "https://track.thailandpost.co.th/?trackNumber=" + encodeURIComponent(t.replace(/\s+/g, "").toUpperCase());
-  const LABEL = { wait: "ยังไม่ส่งออก", move: "ส่งแล้ว รอรับ", late: "เกินกำหนด", done: "ถึงลูกค้าแล้ว" };
+  const LABEL = { wait: "ยังไม่ส่งออก", move: "ส่งแล้ว รอรับ", late: "เกินกำหนด", done: "รับพัสดุแล้ว" };
 
   // ---------- render ----------
   function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -1122,6 +1127,51 @@ body.on-postal .wrap { display: none; }
     for (const r of shown) list.append(card(r));
   }
 
+  // what Thailand Post says about a delivered parcel goes into the set: received date and time, receiver, signature
+  const fromPost = (r, j) => {
+    const { id, ...rest } = r;
+    return { ...rest, deliveredDate: j.date || rest.deliveredDate || today(), deliveredTime: j.time || rest.deliveredTime || "",
+      receiver: j.receiver || rest.receiver || "", signature: j.signature || rest.signature || "", postChecked: new Date().toISOString(),
+      updatedAt: new Date().toISOString() };
+  };
+  // every set sent by EMS and not yet received is checked with Thailand Post by itself: when the page opens and
+  // every 20 minutes while it stays open; a delivered parcel is marked received with who signed for it and when
+  let autoBusy = false, autoOff = false, autoWarned = false;
+  async function autoPost() {
+    if (autoBusy || autoOff || !sb || !canWrite || document.hidden) return;
+    const due = rows.filter((r) => isPost(r) && r.shippedDate && !r.deliveredDate && /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(String(r.tracking).replace(/\s+/g, "").toUpperCase()));
+    if (!due.length) return;
+    autoBusy = true;
+    try {
+      let got = 0;
+      for (let i = 0; i < due.length; i += 100) {
+        const part = due.slice(i, i + 100);
+        const codes = part.map((r) => String(r.tracking).replace(/\s+/g, "").toUpperCase());
+        const res = await fetch("/api/track?barcode=" + encodeURIComponent(codes.join(",")));
+        const j = await res.json().catch(() => ({}));
+        if (res.status === 503 || res.status === 404) {   // no Thailand Post key yet (or no /api here): stop asking
+          autoOff = true;
+          if (!autoWarned) { autoWarned = true; console.info("เช็คไปรษณีย์อัตโนมัติยังไม่ทำงาน: " + (j.message || "ไม่มี /api/track")); }
+          return;
+        }
+        if (!res.ok) return;
+        const results = j.results || { [codes[0]]: j };
+        for (const r of part) {
+          const t = results[String(r.tracking).replace(/\s+/g, "").toUpperCase()];
+          if (!t || !t.delivered) continue;
+          const fresh = rows.find((x) => x.id === r.id);
+          if (!fresh || fresh.deliveredDate) continue;   // someone recorded it meanwhile
+          await col.doc(r.id).set(fromPost(fresh, t));
+          got++;
+        }
+      }
+      if (got) toast("ไปรษณีย์แจ้งว่าลูกค้ารับพัสดุแล้ว " + got + " ชุด · บันทึกผู้รับ วันที่ และเวลาให้แล้ว", 7000);
+    } catch { /* offline: try again next round */ }
+    finally { autoBusy = false; }
+  }
+  setInterval(autoPost, 20 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) autoPost(); });
+
   async function pullPost(r, btn, label) {
     btn.disabled = true; btn.textContent = "กำลังเช็คกับไปรษณีย์…";
     try {
@@ -1133,11 +1183,29 @@ body.on-postal .wrap { display: none; }
         const l = j.latest || {};
         return toast("ยังไม่ถึงผู้รับ · ล่าสุด: " + (l.text || "-") + (l.location ? " (" + l.location + ")" : "") + (l.date ? " " + thDate(l.date) + " " + l.time + " น." : ""), 7000);
       }
-      const { id, ...rest } = r;
-      await col.doc(id).set({ ...rest, deliveredDate: j.date || rest.deliveredDate || today(), deliveredTime: j.time || "", receiver: j.receiver || rest.receiver || "", updatedAt: new Date().toISOString() });
-      toast("ถึงลูกค้าแล้ว · ผู้รับ: " + (j.receiver || "ไปรษณีย์ไม่ระบุชื่อ") + (j.time ? " · เวลา " + j.time + " น." : ""), 7000);
+      await col.doc(r.id).set(fromPost(r, j));
+      toast("รับพัสดุแล้ว · ผู้รับ: " + (j.receiver || "ไปรษณีย์ไม่ระบุชื่อ") + (j.time ? " · เวลา " + j.time + " น." : ""), 7000);
     } catch { toast("เช็คสถานะไม่สำเร็จ ลองใหม่อีกครั้ง", 5000); }
     finally { btn.disabled = false; btn.textContent = label; }
+  }
+
+  // "รับพัสดุแล้ว", who signed, the date and time, the signature and a link to Thailand Post's own record
+  function receivedNote(r) {
+    const f = document.createDocumentFragment();
+    f.append(el("b", "got", "รับพัสดุแล้ว"));
+    f.append(el("span", "got-line", "ผู้รับ: " + (r.receiver || "ไม่ระบุชื่อ")));
+    f.append(el("span", "got-line", "วันที่ " + thDate(r.deliveredDate) + (r.deliveredTime ? " เวลา " + r.deliveredTime + " น." : "")));
+    if (r.signature) {
+      const a = el("a", "sig"); a.href = r.signature; a.target = "_blank"; a.rel = "noopener"; a.title = "ลายเซ็นผู้รับ (เปิดภาพเต็ม)";
+      const img = el("img"); img.src = r.signature; img.alt = "ลายเซ็นผู้รับ"; img.loading = "lazy";
+      img.onerror = () => { a.replaceChildren("ดูลายเซ็นผู้รับ ↗"); };
+      a.append(img); f.append(a);
+    }
+    if (isPost(r)) {
+      const a = el("a", "got-src", r.postChecked ? "ยืนยันจากไปรษณีย์ไทย ↗" : "ดูที่ไปรษณีย์ไทย ↗");
+      a.href = postUrl(r.tracking); a.target = "_blank"; a.rel = "noopener"; f.append(a);
+    }
+    return f;
   }
 
   function card(r) {
@@ -1182,7 +1250,7 @@ body.on-postal .wrap { display: none; }
     const s = [
       { t: "เตรียมชุดเอกสาร", d: r.preparedDate, w: "" },
       { t: "ส่งออก", d: r.shippedDate, w: shipNote },
-      { t: "ถึงลูกค้า", d: r.deliveredDate, w: [r.receiver && "ผู้รับ: " + r.receiver, r.deliveredTime && "เวลา " + r.deliveredTime + " น."].filter(Boolean).join(" · ") },
+      { t: "ถึงลูกค้า", d: r.deliveredDate, w: r.deliveredDate ? receivedNote(r) : "" },
     ];
     // a later step being done implies earlier ones are done
     const on = [!!(r.preparedDate || r.shippedDate || r.deliveredDate), !!(r.shippedDate || r.deliveredDate), !!r.deliveredDate];
@@ -1503,7 +1571,10 @@ body.on-postal .wrap { display: none; }
     if (!data.preparedDate) data.preparedDate = today();
     // receive time comes from Thailand Post, not the form: keep it while the received date is unchanged
     const before = editingId ? rows.find((x) => x.id === editingId) : null;
-    data.deliveredTime = before && before.deliveredDate === data.deliveredDate ? before.deliveredTime || "" : "";
+    const sameDay = before && before.deliveredDate === data.deliveredDate;
+    data.deliveredTime = sameDay ? before.deliveredTime || "" : "";
+    data.signature = sameDay ? before.signature || "" : "";      // Thailand Post's signature and check mark stay with that delivery
+    data.postChecked = sameDay ? before.postChecked || "" : "";
     const checked = [...document.querySelectorAll("#itemChecks input[type=checkbox]:checked")];
     data.items = checked.map((cb) => cb.value);
     data.itemQty = {}; data.itemReturn = {};
@@ -1715,7 +1786,7 @@ body.on-postal .wrap { display: none; }
     if (!window.supabase) return false;
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
     $("notice").hidden = true;
-    col = sbCollection; sbRefresh();
+    col = sbCollection; sbRefresh().then((ok) => { if (ok) autoPost(); });
     sb.channel("docsets-live").on("postgres_changes", { event: "*", schema: "public", table: "docsets" }, () => sbRefresh()).subscribe();
     return true;
   }

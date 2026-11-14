@@ -236,6 +236,7 @@ table.f.items { margin-top: 8px; border: 2px solid var(--form-line); }
 .items .note { font-size: 12.5px; line-height: 1.6; padding: 4px 8px; white-space: nowrap; }
 .items .excount { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 3px; white-space: nowrap; font-size: 12px; line-height: 1.25; padding: 2px 0; }
 .items .pieces { margin-left: 10px; color: var(--fill-ink); }
+.items .excount input.auto { color: var(--fill-ink); }
 .items .excount input { width: 30px; text-align: center; border-bottom: 1px dotted var(--form-line); border-radius: 0; }
 
 .s-bottom { display: grid; grid-template-columns: 56.5% minmax(0, 1fr); gap: 0 14px; margin-top: 12px; }
@@ -793,9 +794,15 @@ function fill() {
 function refresh() {
   const c = compute(slip);
   $('grand').textContent = money(c.grand);
-  // รวมทั้งสิ้น … ชิ้น follows the number typed in "จำนวน … ชิ้น"
+  // "จำนวน … ชิ้น" counts the filled rows by itself; a number typed there wins (emptied → back to the count).
+  // รวมทั้งสิ้น … ชิ้น follows it. The count is only shown, not saved, so saved totals are not counted twice.
   const typedPieces = String(slip.exPieces ?? '').trim();
-  $('pieces').textContent = typedPieces ? `${typedPieces} ชิ้น` : '';
+  const rowCount = slip.items.filter(it => it.to || it.code || num(it.fee)).length;
+  const exInp = sheet.querySelector('[data-f="exPieces"]');
+  if (!typedPieces && exInp !== document.activeElement) exInp.value = rowCount ? String(rowCount) : '';
+  exInp.classList.toggle('auto', !typedPieces);
+  const shownPieces = typedPieces || (rowCount ? String(rowCount) : '');
+  $('pieces').textContent = shownPieces ? `${shownPieces} ชิ้น` : '';
   // summary cells: show what was typed, otherwise the worked-out amount (never touch the one being typed in)
   const ov = slip.ov || {};
   // zero = left empty until typed (รวมเงิน column, ค่าฝากส่งครั้งนี้, ยอดยกไป)
@@ -843,7 +850,7 @@ sheet.addEventListener('input', e => {
   refresh();
 });
 // leaving a summary cell tidies its number (it is skipped while being typed in)
-sheet.addEventListener('focusout', e => { if (e.target.dataset.ov) setTimeout(refresh); });
+sheet.addEventListener('focusout', e => { if (e.target.dataset.ov || e.target.dataset.f === 'exPieces') setTimeout(refresh); });
 // Enter moves to the next field in form order (like Tab), Shift+Enter goes back;
 // with a suggestion list open, its own handler picks first and then this moves on
 sheet.addEventListener('keydown', e => {

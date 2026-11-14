@@ -332,7 +332,7 @@ button.hist-month:disabled { cursor: default; background: transparent; border-co
 .co-pick:has(input:checked) { border-color: var(--c); background: color-mix(in srgb, var(--c) 38%, var(--surface)); font-weight: 500;
   box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--c) 70%, transparent); }
 .co-pick input { accent-color: var(--c); }
-.list-picks { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.list-picks { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
@@ -1387,7 +1387,8 @@ body.on-postal .wrap { display: none; }
     $("company").value = picked.join(", ");
   }
   // รายการ: what the set is for, any of these (saved as one comma-separated text, like บริษัท)
-  const LISTS = ["แบบเรียน", "ข้อสอบกลางภาค", "ข้อสอบปลายภาค", "สื่อเสริม"];
+  // แบบเรียน comes in two curricula; a set saved earlier as plain "แบบเรียน" still shows that as its own ticked box
+  const LISTS = ["แบบเรียน หลักสูตร 2551", "แบบเรียน หลักสูตร 2567", "ข้อสอบกลางภาค", "ข้อสอบปลายภาค", "สื่อเสริม"];
   function drawLists(value) {
     const picked = String(value || "").split(",").map((s) => s.trim()).filter(Boolean);
     const box = $("listPicks"); box.replaceChildren();

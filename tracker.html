@@ -333,6 +333,7 @@ button.hist-month:disabled { cursor: default; background: transparent; border-co
   box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--c) 70%, transparent); }
 .co-pick input { accent-color: var(--c); }
 .list-picks { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.media-name { margin-top: 8px; width: 100%; }
 .f.has-suggest { position: relative; }
 .checks .item.wide { grid-column: 1 / -1; flex-wrap: wrap; row-gap: 6px; }   /* the ส่งกลับ picker drops to its own line on narrow screens */
 .checks .item.wide label { flex: 1 1 8em; }
@@ -672,7 +673,7 @@ body.on-postal .wrap { display: none; }
         <label class="f"><span>วันที่</span><input id="preparedDate" type="date"></label>
         <div class="f"><span>บริษัท (เลือกได้มากกว่า 1)</span><input type="hidden" id="company"><div class="co-picks" id="coPicks"></div></div>
       </div>
-      <div class="f"><span>รายการ (เลือกได้มากกว่า 1)</span><input type="hidden" id="lists"><div class="co-picks list-picks" id="listPicks"></div></div>
+      <div class="f"><span>รายการ (เลือกได้มากกว่า 1)</span><input type="hidden" id="lists"><div class="co-picks list-picks" id="listPicks"></div><input id="listsMedia" class="media-name" autocomplete="off" placeholder="พิมพ์ชื่อสื่อเสริม เช่น บัตรคำ, CD เพลง" aria-label="ชื่อสื่อเสริม" hidden></div>
       <div class="f"><span>เอกสารในชุด</span>
         <div class="checks" id="itemChecks"></div>
       </div>
@@ -1009,7 +1010,7 @@ body.on-postal .wrap { display: none; }
     const q = $("histQ").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => histAll || (histDay ? createdDay(r) === histDay : createdDay(r).slice(0, 7) === histMonth))
-      .filter((r) => !q || [r.docNo, r.customer, r.company, r.lists, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.lists, r.listsMedia, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => createdDay(b).localeCompare(createdDay(a)) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
     const n = { wait: 0, move: 0, late: 0, done: 0 };
     shown.forEach((r) => n[statusOf(r)]++);
@@ -1087,7 +1088,7 @@ body.on-postal .wrap { display: none; }
     const q = $("q").value.trim().toLowerCase();
     const shown = rows
       .filter((r) => filter === "all" || filter === "none" || statusOf(r) === filter)
-      .filter((r) => !q || [r.docNo, r.customer, r.company, r.lists, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
+      .filter((r) => !q || [r.docNo, r.customer, r.company, r.lists, r.listsMedia, r.tracking, r.receiver, r.sender, r.note, r.otherText].join(" ").toLowerCase().includes(q))
       .sort((a, b) => {
         const order = { late: 0, wait: 1, move: 2, done: 3 };
         const s = order[statusOf(a)] - order[statusOf(b)];
@@ -1139,7 +1140,7 @@ body.on-postal .wrap { display: none; }
     row1.append(el("span", "docno", r.docNo || "—"), el("span", "pill " + st, LABEL[st]));
     meta.append(row1, el("div", "cust", r.customer || "—"));
     if (r.company) meta.append(el("div", "sub", "บริษัท: " + r.company));
-    if (r.lists) meta.append(el("div", "sub", "รายการ: " + r.lists));
+    if (r.lists) meta.append(el("div", "sub", "รายการ: " + listsText(r)));
     if (r.items && r.items.length) {
       const ch = el("div", "chips");
       r.items.forEach((i) => ch.append(el("span", "chip item-chip" + (i.includes(STAMP) ? " stamp" : "") + (i.includes(CMP_DOCS) ? " cdoc" : i.includes(GROUP) ? " cmp" : ""), itemLabel(r, i))));
@@ -1260,7 +1261,7 @@ body.on-postal .wrap { display: none; }
     (r.items || []).filter((i) => !FLAGS.has(i) && !NOQTY.has(i) && unitOf(i)).forEach((i) => { t[unitOf(i)] = (t[unitOf(i)] || 0) + qtyOf(r, i); });
     return Object.keys(t).length ? "รวม " + Object.entries(t).map(([u, n]) => n + " " + u).join(" · ") : "";
   };
-  const FIELDS = ["docNo", "customer", "preparedDate", "company", "lists", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note", "otherText"];
+  const FIELDS = ["docNo", "customer", "preparedDate", "company", "lists", "listsMedia", "shippedDate", "method", "tracking", "sender", "deliveredDate", "receiver", "note", "otherText"];
 
   function openForm(r, m) {
     editingId = r ? r.id : null; mode = m; delArmed = false;
@@ -1395,11 +1396,22 @@ body.on-postal .wrap { display: none; }
     [...new Set([...LISTS, ...picked])].forEach((name, k) => {
       const l = el("label", "co-pick"); const cb = document.createElement("input");
       cb.type = "checkbox"; cb.id = "ls" + k; cb.value = name; cb.checked = picked.includes(name);
-      cb.addEventListener("change", () => { $("lists").value = [...box.querySelectorAll("input:checked")].map((x) => x.value).join(", "); });
+      cb.addEventListener("change", () => {
+        $("lists").value = [...box.querySelectorAll("input:checked")].map((x) => x.value).join(", ");
+        syncMedia();
+        if (name === MEDIA && cb.checked) $("listsMedia").focus();
+      });
       l.append(cb, el("span", null, name)); box.append(l);
     });
     $("lists").value = picked.join(", ");
+    syncMedia();
   }
+  // สื่อเสริม gets a name box, shown while it is ticked
+  const MEDIA = "สื่อเสริม";
+  function syncMedia() { $("listsMedia").hidden = !String($("lists").value).split(", ").includes(MEDIA); }
+  // รายการ as shown on cards and in the export: "สื่อเสริม: <name>" when a name was typed
+  const listsText = (r) => String(r.lists || "").split(",").map((s) => s.trim()).filter(Boolean)
+    .map((s) => s === MEDIA && r.listsMedia ? MEDIA + ": " + r.listsMedia : s).join(", ");
 
   function showErr(msg) { $("formErr").textContent = msg; $("formErr").hidden = false; }
 
@@ -1440,6 +1452,7 @@ body.on-postal .wrap { display: none; }
       const rs = $(cb.id.replace("item", "ret"));
       if (rs && rs.value) data.itemReturn[cb.value] = Number(rs.value);
     }
+    if (!data.lists.split(", ").includes(MEDIA)) data.listsMedia = "";
     if (!data.items.includes(OTHER)) data.otherText = "";
     else if (!data.otherText) { $("otherText").focus(); return showErr("พิมพ์ชื่อเอกสารในช่อง “อื่นๆ” ก่อนบันทึก หรือเอาเครื่องหมายถูกออก"); }
     if (!data.docNo || !data.customer) return showErr("กรุณากรอกเลขที่เอกสารและชื่อลูกค้า");
@@ -1518,7 +1531,7 @@ body.on-postal .wrap { display: none; }
   $("exportBtn").onclick = async () => {
     const head = ["เลขที่เอกสาร", "ลูกค้า", "บริษัท", "รายการ", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, r.company, r.lists, itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
+    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, r.company, listsText(r), itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
     const csv = "﻿" + lines.join("\r\n");
     try {
       const filename = "ชุดเบิก-" + today() + ".csv";

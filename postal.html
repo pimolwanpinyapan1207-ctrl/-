@@ -172,6 +172,8 @@ a.trk { color: var(--accent); font-weight: 500; text-decoration: underline; text
 .btn.danger { color: var(--bad); }
 .status { font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
 .status.dirty { background: var(--warn-soft); color: var(--warn); }
+.head-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.others { font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .notice { padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: .9rem; }
 
 /* ---------- the paper form ---------- */
@@ -404,9 +406,9 @@ table.f.carry { border-top: 0; }
   <header class="view-head no-print">
     <div>
       <h2>ฟอร์มใหม่</h2>
-      <p>กรอกลงในฟอร์มได้เลย กด Enter ไปช่องถัดไป · เสร็จแล้วกด “พิมพ์” แล้ว “บันทึก” (บันทึกแล้วจะขึ้นฟอร์มใหม่)</p>
+      <p>กรอกลงในฟอร์มได้เลย กด Enter ไปช่องถัดไป · หลายเครื่องคีย์พร้อมกันได้ ตอนกด “พิมพ์” ระบบรวมแถวจากทุกเครื่องเป็นใบเดียว · พิมพ์แล้วกด “บันทึก”</p>
     </div>
-    <span class="status" id="status">ใบใหม่</span>
+    <div class="head-tags"><span class="others" id="othersInfo" hidden></span><span class="status" id="status">ใบใหม่</span></div>
   </header>
   <div class="paper-scroll">
   <div class="sheet" id="sheet">
@@ -451,7 +453,7 @@ table.f.carry { border-top: 0; }
         </tr>
       </tfoot>
     </table>
-    <div class="add-row no-print"><button type="button" class="btn small" id="btnAddRow">+ เพิ่มแถว</button><span class="hint">หลายเครื่องกรอกใบเดียวกันได้: เปิดใบเดิมจาก “รายการย้อนหลัง” หรือใส่เล่ม/เลขที่เดียวกัน แล้วกดบันทึก ระบบจะรวมรายการให้ · ตอนพิมพ์เรียงตามเลขที่บริการ</span></div>
+    <div class="add-row no-print"><button type="button" class="btn small" id="btnAddRow">+ เพิ่มแถว</button><span class="hint">แต่ละเครื่องคีย์แถวของตัวเองได้เลย ตอนกด “พิมพ์” ระบบดึงแถวจากทุกเครื่องมารวมในใบนี้ เรียงตามเลขที่บริการ แล้วพิมพ์ทีเดียว</span></div>
 
     <div class="s-bottom">
       <div>
@@ -669,6 +671,23 @@ const blankItem = () => ({ to: '', dest: '', type: '', code: '', fee: '', note: 
 // so every computer gives them the same uid.
 const filled = it => !!(it && (it.to || it.dest || it.code || String(it.fee ?? '').trim() || it.note));
 const newUid = () => 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+// this computer's id: rows keyed here carry it (it.from), so each computer's rows can be sent up and gathered at print time
+const MACHINE = (() => {
+  let m = load('postal-machine-v1', '');
+  if (!m) { m = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); store('postal-machine-v1', m); }
+  return m;
+})();
+// put rows into the empty rows below the last filled one (never into the row being typed in), adding rows as needed
+function placeRows(rows) {
+  const items = slip.items, busy = Number(document.activeElement?.dataset?.i ?? -1);
+  let k = items.length;
+  while (k > 0 && !filled(items[k - 1])) k--;
+  for (const it of rows) {
+    while (k === busy) k++;
+    if (k < items.length) items[k] = { ...blankItem(), ...it }; else items.push({ ...blankItem(), ...it });
+    k++;
+  }
+}
 function giveUids(items) { (items || []).forEach((it, i) => { if (filled(it) && !it.uid) it.uid = 'L' + i + ':' + (it.code || it.to || it.fee); }); return items; }
 function padItems(items) { const out = (items || []).map(it => ({ ...blankItem(), ...it })); while (out.length < ROWS) out.push(blankItem()); return out; }
 const filledUids = items => (items || []).filter(filled).map(it => it.uid).filter(Boolean);
@@ -792,7 +811,7 @@ function refresh() {
   const st = $('status');
   st.textContent = dirty ? 'ยังไม่ได้บันทึก' : (slip.id ? 'บันทึกแล้ว' : 'ใบใหม่');
   st.classList.toggle('dirty', dirty);
-  if (cloud) showCloudInfo();
+  if (cloud) { showCloudInfo(); queueDraft(); }
   renderHistory();
   if (!$('report').hidden) renderReport();
 }
@@ -813,7 +832,7 @@ sheet.addEventListener('input', e => {
       el.setSelectionRange(pos, pos);
     }
     it[el.dataset.k] = el.value;
-    if (!it.uid && filled(it)) it.uid = newUid();
+    if (!it.uid && filled(it)) { it.uid = newUid(); it.from = MACHINE; }
     // ทุกชุดส่ง EMS เป็นหลัก: ใส่ประเภทให้เองเมื่อเริ่มกรอกแถว
     if (el.dataset.k !== 'type' && !it.type && (it.to || it.code || it.fee)) {
       it.type = 'EMS';
@@ -886,7 +905,7 @@ async function save() {
   const copy = JSON.parse(JSON.stringify(slip));
   delete copy.base;
   if (cloud) {
-    try { await cloudPut(copy); }
+    try { await cloudPut(copy); clearSavedDrafts(copy); }
     catch (err) {
       // no permission yet (or offline): keep it on this computer; it goes up the next time the page opens
       if (!storageOk) { saving = false; refresh(); toast('บันทึกไม่สำเร็จ: ' + cloudErrText(err), true); return false; }
@@ -973,9 +992,20 @@ window.addEventListener('beforeprint', () => {
   if (sortForPrint()) { dirty = true; fill(); }
 });
 $('btnSave').onclick = saveAndNext;
+// พิมพ์: a new form gathers the rows every computer has keyed; a saved slip picks up rows saved into it elsewhere.
+// The rows are then sorted by เลขที่บริการ (beforeprint) and it all prints on one form.
 $('btnPrint').onclick = async () => {
   showView('form');
-  const n = await pullLatest();
+  let n = 0;
+  if (cloud && !slip.id) {
+    try {
+      const drafts = await fetchDrafts();
+      n = gatherDrafts(drafts);
+      if (n) dirty = true;
+      fill();
+      showOthers(drafts);
+    } catch { toast('ดึงข้อมูลจากเครื่องอื่นไม่ได้ พิมพ์เฉพาะที่อยู่ในหน้านี้', true); }
+  } else n = await pullLatest();
   if (n > 0) toast(`รวมรายการจากเครื่องอื่น ${n} แถวก่อนพิมพ์`);
   window.print();
 };
@@ -1434,6 +1464,11 @@ window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); 
 const SUPABASE_URL = 'https://urqkmzqtmvwkmezadnke.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycWttenF0bXZ3a21lemFkbmtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE3OTMwMTMsImV4cCI6MjEwNzM2OTAxM30.AWyx6WE6_uA_z6XLpbz-sxSltdbBMnFiUykXLkbCU4w';
 const PREFIX = 'postal:';
+// Rows keyed on each computer but not saved in a slip yet: one row "postal:draft:<computer>" per computer,
+// kept up to date as it types. "พิมพ์" on any computer gathers every computer's rows into the slip on its screen,
+// sorted by เลขที่บริการ, so it all prints on one form. Saving that slip takes the gathered rows off every
+// computer's draft, and each computer then clears those rows from its own screen.
+const DRAFT = PREFIX + 'draft:';
 const KEY_PENDING = 'postal-pending-v1';    // ids saved here but not yet in the database
 const KEY_MIGRATED = 'postal-migrated-v1';  // slips from before the shared list were queued once
 let sb = null, cloud = false;
@@ -1458,6 +1493,72 @@ async function cloudPut(s) {
     throw err;
   } finally { savePending(); }
 }
+// ---- each computer's unsaved rows ----
+const rowData = it => { const o = {}; ['uid', 'from', 'to', 'dest', 'type', 'code', 'fee', 'note'].forEach(k => { if (it[k]) o[k] = it[k]; }); return o; };
+const myRows = () => slip.id ? [] : slip.items.filter(it => filled(it) && it.from === MACHINE).map(rowData);
+let draftTimer, lastDraft = null;
+function queueDraft() { clearTimeout(draftTimer); draftTimer = setTimeout(pushDraft, 700); }
+async function pushDraft() {
+  if (!cloud) return;
+  const items = myRows(), key = JSON.stringify(items);
+  if (key === lastDraft) return;
+  lastDraft = key;
+  try {
+    const q = items.length
+      ? sb.from('docsets').upsert({ id: DRAFT + MACHINE, data: { machine: MACHINE, items, at: Date.now() }, updated_at: new Date().toISOString() })
+      : sb.from('docsets').delete().eq('id', DRAFT + MACHINE);
+    const { error } = await q;
+    if (error) throw error;
+  } catch { lastDraft = null; }  // try again on the next change
+}
+async function fetchDrafts() {
+  const { data, error } = await sb.from('docsets').select('id,data').like('id', DRAFT + '%');
+  if (error) throw error;
+  return data.map(r => ({ machine: r.id.slice(DRAFT.length), items: (r.data && r.data.items) || [] }));
+}
+// rows from the other computers' drafts that are not on this screen yet; rows another computer has since
+// changed or removed are brought in line. Returns how many rows came in.
+function gatherDrafts(drafts) {
+  const want = new Map();
+  drafts.filter(d => d.machine !== MACHINE).forEach(d => d.items.forEach(it => { if (it.uid) want.set(it.uid, { ...it, from: d.machine }); }));
+  slip.items = slip.items.map(it => {
+    if (!filled(it) || !it.from || it.from === MACHINE) return it;
+    const w = want.get(it.uid);
+    if (!w) return blankItem();
+    want.delete(it.uid);
+    return { ...blankItem(), ...w };
+  });
+  const rows = [...want.values()];
+  placeRows(rows);
+  return rows.length;
+}
+function showOthers(drafts) {
+  const n = drafts.filter(d => d.machine !== MACHINE).reduce((a, d) => a + d.items.length, 0);
+  const pcs = drafts.filter(d => d.machine !== MACHINE && d.items.length).length;
+  $('othersInfo').hidden = !n || !!slip.id;
+  $('othersInfo').textContent = `เครื่องอื่น ${pcs} เครื่องคีย์ไว้ ${n} แถว · รวมตอนพิมพ์`;
+}
+// another computer saved a slip that holds rows keyed here: take them off this screen (they are printed and saved)
+function dropSavedRows(saved) {
+  if (slip.id) return 0;
+  const done = new Set(saved.flatMap(s => filledUids(s.items)));
+  let n = 0;
+  slip.items = slip.items.map(it => (filled(it) && it.uid && done.has(it.uid)) ? (n++, blankItem()) : it);
+  if (n) { if (!slip.items.some(filled)) dirty = false; fill(); }
+  return n;
+}
+// after saving: the rows now in the slip leave every computer's draft
+async function clearSavedDrafts(saved) {
+  const done = new Set(filledUids(saved.items));
+  try {
+    for (const d of await fetchDrafts()) {
+      const left = d.items.filter(it => !done.has(it.uid));
+      if (left.length === d.items.length) continue;
+      if (left.length) await sb.from('docsets').upsert({ id: DRAFT + d.machine, data: { machine: d.machine, items: left, at: Date.now() }, updated_at: new Date().toISOString() });
+      else await sb.from('docsets').delete().eq('id', DRAFT + d.machine);
+    }
+  } catch { /* the other computers clear their rows when they see the saved slip */ }
+}
 async function cloudGet(id) {
   const { data, error } = await sb.from('docsets').select('data').eq('id', PREFIX + id).maybeSingle();
   if (error) throw error;
@@ -1470,7 +1571,7 @@ async function cloudDel(id) {
   if (error) throw error;
 }
 async function cloudFetch() {
-  const { data, error } = await sb.from('docsets').select('id,data').like('id', PREFIX + '%');
+  const { data, error } = await sb.from('docsets').select('id,data').like('id', PREFIX + '%').not('id', 'like', DRAFT + '%');
   if (error) { toast('โหลดใบนำส่งไม่สำเร็จ: ' + cloudErrText(error), true); return null; }
   return data.map(r => ({ ...r.data, id: r.id.slice(PREFIX.length) }));
 }
@@ -1493,8 +1594,11 @@ function refetchSoon() {  // someone else saved or deleted: refresh the list, ke
     slips = withPending(remote);
     store(KEY_SLIPS, slips);
     const n = slip.id ? takeRemote(remote.find(s => s.id === slip.id)) : 0;
+    const gone = dropSavedRows(remote);
     refresh();
     if (n > 0) toast(`มีรายการจากเครื่องอื่นเพิ่มเข้ามา ${n} แถว`);
+    if (gone) toast(`เครื่องอื่นพิมพ์และบันทึกแถวของเครื่องนี้ไปแล้ว ${gone} แถว`);
+    try { showOthers(await fetchDrafts()); } catch { /* offline */ }
   }, 400);
 }
 // another computer saved the slip that is open here: show its rows. Nothing typed here yet → load its copy;
@@ -1507,14 +1611,7 @@ function takeRemote(remoteSlip) {
   slip.base = [...new Set([...(slip.base || []), ...filledUids(giveUids((remoteSlip.items || []).map(it => ({ ...it }))))])];
   slip.savedAt = remoteSlip.savedAt;
   if (!extra.length) return 0;
-  const items = slip.items, busy = Number(document.activeElement?.dataset?.i ?? -1);
-  let k = items.length;
-  while (k > 0 && !filled(items[k - 1])) k--;
-  for (const it of extra) {
-    while (k === busy) k++;
-    if (k < items.length) items[k] = { ...blankItem(), ...it }; else items.push({ ...blankItem(), ...it });
-    k++;
-  }
+  placeRows(extra);
   fill();
   return extra.length;
 }
@@ -1574,6 +1671,7 @@ async function startCloud() {
   $('storageNote').hidden = true;
   if (!slip.id && !dirty) slip = freshSlip();  // number a blank slip after the shared list
   fill();
+  try { showOthers(await fetchDrafts()); } catch { /* offline */ }
   sb.channel('postal-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'docsets' }, p => {
       const id = String((p.new && p.new.id) || (p.old && p.old.id) || '');

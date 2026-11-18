@@ -473,7 +473,7 @@ table.f.carry { border-top: 0; }
         </tr>
       </tfoot>
     </table>
-    <div class="add-row no-print"><button type="button" class="btn small" id="btnAddRow">+ เพิ่มแถว</button><span class="hint">แต่ละเครื่องคีย์แถวของตัวเองได้เลย ตอนกด “พิมพ์” ระบบดึงแถวจากทุกเครื่องมารวมในใบนี้ เรียงตามเลขที่บริการ แล้วพิมพ์ทีเดียว</span></div>
+    <div class="add-row no-print"><span class="hint">แต่ละเครื่องคีย์แถวของตัวเองได้เลย ตอนกด “พิมพ์” ระบบดึงแถวจากทุกเครื่องมารวมในใบนี้ เรียงตามเลขที่บริการ แล้วพิมพ์ทีเดียว</span></div>
 
     <div class="s-bottom">
       <div>
@@ -787,7 +787,7 @@ try { localStorage.removeItem(KEY_DRAFT); } catch {}
 // ---------- build the form ----------
 const $ = id => document.getElementById(id);
 const sheet = $('sheet');
-// the table has ROWS rows, more when several computers' rows were merged into one slip (or "+ เพิ่มแถว")
+// the table has ROWS rows, more when several computers' rows were merged into one slip
 function buildRows(n) {
   const body = $('itemRows');
   // add or take away rows at the end only, so the row being typed in keeps its cursor
@@ -1100,11 +1100,6 @@ function startFresh(msg) {
   toast((typeof msg === 'string' ? msg : '✓ บันทึกแล้ว') + ' · พร้อมกรอกใบใหม่');
 }
 // "บันทึก" saves and moves on to a blank form; "พิมพ์" adds rows other computers saved, sorts by เลขที่บริการ, then prints
-$('btnAddRow').onclick = () => {
-  slip.items.push(blankItem());
-  fill();
-  sheet.querySelector(`[data-i="${slip.items.length - 1}"][data-k="to"]`).focus();
-};
 const saveAndNext = () => save().then(ok => { if (ok) startFresh(ok); });
 // printing (button or Ctrl+P) puts the rows in เลขที่บริการ order first; the daily report prints as it is
 window.addEventListener('beforeprint', () => {

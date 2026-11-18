@@ -713,12 +713,9 @@ function placeRows(rows) {
 }
 function giveUids(items) { (items || []).forEach((it, i) => { if (filled(it) && !it.uid) it.uid = 'L' + i + ':' + (it.code || it.to || it.fee); }); return items; }
 function padItems(items) { const out = (items || []).map(it => ({ ...blankItem(), ...it })); while (out.length < ROWS || out.length % ROWS) out.push(blankItem()); return out; }
-// the last row of the last page is filled → a new page of 10 empty rows comes in at once
-function ensureRoom() {
-  if (!filled(slip.items[slip.items.length - 1])) return false;
-  for (let k = 0; k < ROWS; k++) slip.items.push(blankItem());
-  return true;
-}
+// the form stays at 10 rows: filling the last row no longer adds a new page of empty rows
+// (rows gathered from other computers past 10 still get rows, so nothing keyed is lost)
+function ensureRoom() { return false; }
 const filledUids = items => (items || []).filter(filled).map(it => it.uid).filter(Boolean);
 function extraRows(remoteItems, localItems, base) {
   const have = new Set(filledUids(localItems)), seen = new Set(base || []);

@@ -743,7 +743,7 @@ body.on-postal .wrap { display: none; }
   const NOQTY = new Set(["สัญญาซื้อขาย", "สัญญาจ้างทำของ", OTHER]);
   const unitOf = (name) => (name.startsWith(GROUP) ? "แผ่น" : name.startsWith(CMP_DOCS) ? "ชุด" : UNITS[name] || "ฉบับ");
   const qtyLabel = (i, n) => i + " " + n + " " + unitOf(i);
-  const ITEMS = ["ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME", "ใบเสนอราคา"];
+  const ITEMS = ["ใบเสนอราคา", "ใบกำกับภาษี", "ใบสั่งซื้อ", "ใบสั่งจ้าง", "เอกสารบริษัท", "หนังสือแต่งตั้ง", "หนังสือรับรอง", "SME"];
   const SUBS = ["ประยูร", "ฟีนิกซ์", "ป.อินเตอร์"].map((s) => GROUP + " " + s);
   // form layout; x = exclusion group, solo = ticking it clears the others in its group (and vice versa)
   const FORM = [

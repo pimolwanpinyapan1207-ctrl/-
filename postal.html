@@ -613,6 +613,8 @@ const ROWS = 10;
 const KEY_SLIPS = 'postal-slips-v1';
 const KEY_DRAFT = 'postal-draft-v1';
 const TRACK_RE = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
+// เลขที่บริการ starts with this; an empty cell gets it on focus and loses it again if nothing more was typed
+const CODE_PREFIX = 'EQ2390';
 
 // ---------- storage (falls back to memory when the browser refuses) ----------
 let storageOk = true;
@@ -802,7 +804,7 @@ function buildRows(n) {
     <td class="in"><input data-i="${i}" data-k="to" aria-label="ผู้รับ แถว ${i + 1}"></td>
     <td class="in"><input data-i="${i}" data-k="dest" class="ctr" aria-label="ปลายทาง แถว ${i + 1}"></td>
     <td class="in"><select data-i="${i}" data-k="type" aria-label="ประเภทบริการ แถว ${i + 1}"><option value=""></option>${TYPES.map(t => `<option>${t}</option>`).join('')}</select></td>
-    <td class="in"><input data-i="${i}" data-k="code" class="ctr" maxlength="13" autocapitalize="characters" spellcheck="false" aria-label="เลขที่บริการ แถว ${i + 1}"></td>
+    <td class="in"><input data-i="${i}" data-k="code" class="ctr" placeholder="${CODE_PREFIX}" autocapitalize="characters" spellcheck="false" aria-label="เลขที่บริการ แถว ${i + 1}"></td>
     <td class="in"><input data-i="${i}" data-k="fee" class="num" inputmode="decimal" aria-label="ค่าบริการ แถว ${i + 1}"></td>
     <td class="in"><input data-i="${i}" data-k="note" aria-label="หมายเหตุ แถว ${i + 1}"></td>
   </tr>`).join('');
@@ -960,8 +962,11 @@ sheet.addEventListener('input', e => {
     const it = slip.items[el.dataset.i];
     if (el.dataset.k === 'code') {
       const pos = el.selectionStart;
-      el.value = el.value.toUpperCase().replace(/\s/g, '');
-      el.setSelectionRange(pos, pos);
+      let v = el.value.toUpperCase().replace(/\s/g, '');
+      // a whole number pasted after the EQ2390 already there → keep just the pasted number
+      if (v.length > 13) { const m = v.match(/[A-Z]{2}\d{9}[A-Z]{2}$/); v = m ? m[0] : v.slice(0, 13); }
+      el.value = v;
+      el.setSelectionRange(Math.min(pos, v.length), Math.min(pos, v.length));
     }
     it[el.dataset.k] = el.value;
     if (!it.uid && filled(it)) { it.uid = newUid(); it.from = MACHINE; }
@@ -977,6 +982,22 @@ sheet.addEventListener('input', e => {
 });
 // leaving a summary cell tidies its number (it is skipped while being typed in)
 sheet.addEventListener('focusout', e => { if (e.target.dataset.ov || e.target.dataset.f === 'exPieces') setTimeout(refresh); });
+// เลขที่บริการ: an empty cell starts with EQ2390 (cursor at the end); only the prefix left on leaving → empty again
+sheet.addEventListener('focusin', e => {
+  const el = e.target;
+  if (el.dataset.k !== 'code' || el.value || el.readOnly) return;
+  el.value = CODE_PREFIX;
+  // after the click has placed its caret, put it at the end
+  const end = () => { if (document.activeElement === el && el.value === CODE_PREFIX) el.setSelectionRange(CODE_PREFIX.length, CODE_PREFIX.length); };
+  end(); setTimeout(end);
+  el.addEventListener('mouseup', end, { once: true });
+});
+sheet.addEventListener('focusout', e => {
+  const el = e.target;
+  if (el.dataset.k !== 'code' || el.value !== CODE_PREFIX) return;
+  el.value = '';
+  if (slip.items[el.dataset.i]?.code) el.dispatchEvent(new Event('input', { bubbles: true }));
+});
 // Enter moves to the next field in form order (like Tab), Shift+Enter goes back;
 // with a suggestion list open, its own handler picks first and then this moves on
 sheet.addEventListener('keydown', e => {

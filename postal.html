@@ -736,29 +736,30 @@ function sortForPrint() {
   slip.items = padItems(sorted);
   return true;
 }
-function compute(s) {
+// สรุปยอดฝากส่ง counts pieces (ชิ้น) per ประเภทบริการ; `extra` = rows other computers keyed that are not on this
+// screen yet (counted in the summary only)
+function compute(s, extra) {
   const dom = Object.fromEntries(TYPES.map(t => [t, 0]));
   let pieces = 0;
-  for (const it of s.items) {
-    const fee = num(it.fee);
-    if (it.to || it.code || fee) pieces++;
-    if (it.type && fee) dom[it.type] = round2(dom[it.type] + fee);
+  for (const it of s.items.concat(extra || [])) {
+    if (!(it.to || it.code || num(it.fee))) continue;
+    if (it.type in dom) dom[it.type]++;
   }
-  dom['ธรรมดา'] = round2(dom['ธรรมดา'] + num(s.exFee));
+  for (const it of s.items) if (it.to || it.code || num(it.fee)) pieces++;
   pieces += Math.round(num(s.exPieces));
   const grand = round2(s.items.reduce((a, it) => a + num(it.fee), 0) + num(s.exFee));
   // every summary cell can be typed over (s.ov); a typed number wins and the totals after it use it
   const ov = s.ov || {};
   const pick = (key, auto) => (String(ov[key] ?? '').trim() !== '' ? round2(num(ov[key])) : auto);
   TYPES.forEach(t => { dom[t] = pick('dom:' + t, dom[t]); });
-  // รวมเงิน (1+2) = ในประเทศ + ต่างประเทศ of the same type
+  // (1+2) = ในประเทศ + ต่างประเทศ (typed) of the same type
   const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, round2(dom[t] + num((s.intl || {})[t])))]));
   const sumDom = pick('sumDom', round2(TYPES.reduce((a, t) => a + dom[t], 0)));
   const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num((s.intl || {})[t]), 0)));
   const sumAll = pick('sumAll', round2(TYPES.reduce((a, t) => a + all[t], 0)));
   // ยอดยกมา / ค่าฝากส่งครั้งนี้ / ยอดยกไป are typed only; for the words and the lists, thisTime falls back
-  // to the typed รวมเงิน total, then to ในประเทศ + ต่างประเทศ
-  const thisTime = pick('thisTime', sumAll || round2(sumDom + sumIntl));
+  // to the ค่าบริการ total of the rows
+  const thisTime = pick('thisTime', grand);
   const carryOut = pick('carryOut', 0);
   return { dom, all, pieces, grand, sumDom, sumIntl, sumAll, thisTime, carryOut };
 }
@@ -918,15 +919,16 @@ function showSummary(root, c, ov, skipActive) {
   });
 }
 function refresh() {
-  const c = compute(slip);
+  // the rows the other computers have keyed and that are not on this screen yet, so every computer sees the full count
+  const hereUids = new Set(filledUids(slip.items));
+  const otherItems = slip.id ? [] : otherDrafts.filter(d => d.machine !== MACHINE)
+    .flatMap(d => d.items.filter(it => !it.uid || !hereUids.has(it.uid)));
+  const otherCount = otherItems.length;
+  const c = compute(slip, otherItems);
   $('grand').textContent = money(c.grand);
   // "จำนวน … ชิ้น" counts the filled rows by itself; a number typed there wins (emptied → back to the count).
   // รวมทั้งสิ้น … ชิ้น follows it. The count is only shown, not saved, so saved totals are not counted twice.
   const typedPieces = String(slip.exPieces ?? '').trim();
-  // plus the rows the other computers have keyed and that are not on this screen yet, so every computer sees the full count
-  const hereUids = new Set(filledUids(slip.items));
-  const otherCount = slip.id ? 0 : otherDrafts.filter(d => d.machine !== MACHINE)
-    .reduce((a, d) => a + d.items.filter(it => !it.uid || !hereUids.has(it.uid)).length, 0);
   const rowCount = slip.items.filter(it => it.to || it.code || num(it.fee)).length + otherCount;
   const exInp = sheet.querySelector('[data-f="exPieces"]');
   if (!typedPieces && exInp !== document.activeElement) exInp.value = rowCount ? String(rowCount) : '';

@@ -209,7 +209,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 /* history: soft blue wash behind the month bar and search, fading into the page colour */
 .history { padding: 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line));
   background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 15%, var(--surface)) 0, color-mix(in srgb, var(--accent) 6%, var(--bg)) 200px, var(--bg) 380px); }
-.history .btn.small { background: var(--surface); }
+.history .hist-head .btn.small:not([aria-pressed="true"]) { background: var(--surface); }
 .history .hist-head input[type=search] { box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
 .history .hist-sum { color: color-mix(in srgb, var(--accent) 55%, var(--muted)); }
 @media print { .history { padding: 0; border: 0; background: none; } }

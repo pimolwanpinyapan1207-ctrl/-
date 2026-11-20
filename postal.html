@@ -571,7 +571,7 @@ table.f.carry { border-top: 0; }
     </div>
     <div class="hist-scroll">
       <table class="hist">
-        <thead><tr><th>เล่ม/เลขที่</th><th>วันที่</th><th>ผู้รับ</th><th class="num">ชิ้น</th><th class="num">ค่าฝากส่ง</th><th class="num hide-sm">ยอดยกไป</th><th></th></tr></thead>
+        <thead><tr><th>บริษัท</th><th>วันที่</th><th>ผู้รับ</th><th class="num">ชิ้น</th><th class="num">ค่าฝากส่ง</th><th class="num hide-sm">ยอดยกไป</th><th></th></tr></thead>
         <tbody id="histRows"></tbody>
       </table>
     </div>
@@ -1219,7 +1219,7 @@ function renderHistory() {
     const first = r.items[0]?.to || '';
     const more = r.items.length > 1 ? `และอีก ${r.items.length - 1} รายการ` : '';
     html += `<tr class="${r.s.id === slip.id ? 'current' : ''}">
-      <td>${esc(r.s.book || '-')} / ${esc(r.s.no || '-')}</td>
+      <td>${esc(coOf(r.s) || '-')}</td>
       <td>${esc(thaiDate(r.s.date, 'short'))}</td>
       <td class="who">${esc(first) || '<span class="hint">-</span>'}${more ? `<small>${more}</small>` : ''}${r.found ? `<span class="found">พบ: ${esc(r.found)}</span>` : ''}</td>
       <td class="num">${r.c.pieces}</td>

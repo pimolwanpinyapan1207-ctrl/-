@@ -263,6 +263,8 @@ table.f.carry { border-top: 0; }
 .words { border-bottom: 1px dotted var(--form-line); min-height: 40px; display: flex; align-items: end; gap: 8px; padding: 0 4px 2px; }
 .words b { font-weight: 400; color: var(--form-ink); }
 .words input { flex: 1; }
+.sheet input.dash::placeholder { color: #1f2a44; opacity: 1; }
+.sheet input.dash:placeholder-shown { text-align: center; }
 .words input::placeholder { color: #9aa6b8; font-size: 13px; }
 .checked { text-align: right; padding: 4px 6px 0 0; white-space: nowrap; }
 .sign-area { display: grid; grid-template-columns: 116px 1fr; gap: 8px; align-items: end; margin-top: 10px; }
@@ -367,6 +369,7 @@ table.f.carry { border-top: 0; }
   .sheet input, .sheet select { background: transparent !important; outline: 0 !important; }
   .sheet .bad { box-shadow: none; background: transparent; }
   .sheet input::placeholder { color: transparent !important; }
+  .sheet input.dash::placeholder { color: #000 !important; }
   .screen-only { display: none !important; }
   .print-only { display: inline; }
   table.f th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -748,11 +751,11 @@ function compute(s) {
   const ov = s.ov || {};
   const pick = (key, auto) => (String(ov[key] ?? '').trim() !== '' ? round2(num(ov[key])) : auto);
   TYPES.forEach(t => { dom[t] = pick('dom:' + t, dom[t]); });
-  // the รวมเงิน (1+2) column is typed only
-  const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, 0)]));
+  // รวมเงิน (1+2) = ในประเทศ + ต่างประเทศ of the same type
+  const all = Object.fromEntries(TYPES.map(t => [t, pick('all:' + t, round2(dom[t] + num((s.intl || {})[t])))]));
   const sumDom = pick('sumDom', round2(TYPES.reduce((a, t) => a + dom[t], 0)));
-  const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num(s.intl[t]), 0)));
-  const sumAll = pick('sumAll', 0);
+  const sumIntl = pick('sumIntl', round2(TYPES.reduce((a, t) => a + num((s.intl || {})[t]), 0)));
+  const sumAll = pick('sumAll', round2(TYPES.reduce((a, t) => a + all[t], 0)));
   // ยอดยกมา / ค่าฝากส่งครั้งนี้ / ยอดยกไป are typed only; for the words and the lists, thisTime falls back
   // to the typed รวมเงิน total, then to ในประเทศ + ต่างประเทศ
   const thisTime = pick('thisTime', sumAll || round2(sumDom + sumIntl));
@@ -864,12 +867,7 @@ function buildPrintPages() {
     el.querySelector('.print-only').textContent = thaiDate(slip.date);
     el.querySelectorAll('[data-i]').forEach(n => { n.value = slip.items[n.dataset.i]?.[n.dataset.k] ?? ''; n.readOnly = false; n.disabled = false; });
     el.querySelectorAll('[data-intl]').forEach(n => { n.value = page.intl[n.dataset.intl] ?? ''; });
-    const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: 0, thisTime: 0, carryOut: 0 };
-    TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = 0; });
-    el.querySelectorAll('[data-ov]').forEach(n => {
-      const typed = String(page.ov[n.dataset.ov] ?? '').trim();
-      n.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[n.dataset.ov]);
-    });
+    showSummary(el, c, page.ov, false);
     box.append(el);
   }
   box.querySelectorAll('[data-k="to"], [data-f="sender"], [data-f="clerk"]').forEach(fitText);
@@ -895,6 +893,30 @@ function markRows() {
   });
   $('machineName').textContent = '🖥 ' + machineName;
 }
+// fill the สรุปยอด cells: what was typed, otherwise the worked-out amount (ค่าฝากส่งครั้งนี้ / ยอดยกไป stay empty
+// until typed). A type with nothing sent shows "-" (as a placeholder, so nothing is saved and typing replaces it);
+// a blank form shows no dashes.
+function showSummary(root, c, ov, skipActive) {
+  ov = ov || {};
+  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: c.sumAll, thisTime: 0, carryOut: 0 };
+  TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = c.all[t]; });
+  const any = TYPES.some(t => c.all[t] || c.dom[t]) || !!(c.sumDom || c.sumIntl || c.sumAll);
+  const none = t => any && !c.all[t] && !c.dom[t];
+  root.querySelectorAll('[data-ov]').forEach(el => {
+    const key = el.dataset.ov, t = key.includes(':') ? key.split(':')[1] : null;
+    const dash = !!t && none(t);
+    el.placeholder = dash ? '-' : '';
+    el.classList.toggle('dash', dash);
+    if (skipActive && el === document.activeElement) return;
+    const typed = String(ov[key] ?? '').trim();
+    el.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[key]);
+  });
+  root.querySelectorAll('[data-intl]').forEach(el => {
+    const dash = none(el.dataset.intl);
+    el.placeholder = dash ? '-' : '';
+    el.classList.toggle('dash', dash);
+  });
+}
 function refresh() {
   const c = compute(slip);
   $('grand').textContent = money(c.grand);
@@ -912,15 +934,7 @@ function refresh() {
   const shownPieces = typedPieces || (rowCount ? String(rowCount) : '');
   $('pieces').textContent = shownPieces ? `${shownPieces} ชิ้น` : '';
   // summary cells: show what was typed, otherwise the worked-out amount (never touch the one being typed in)
-  const ov = slip.ov || {};
-  // zero = left empty until typed (รวมเงิน column, ค่าฝากส่งครั้งนี้, ยอดยกไป)
-  const auto = { sumDom: c.sumDom, sumIntl: c.sumIntl, sumAll: 0, thisTime: 0, carryOut: 0 };
-  TYPES.forEach(t => { auto['dom:' + t] = c.dom[t]; auto['all:' + t] = 0; });
-  sheet.querySelectorAll('[data-ov]').forEach(el => {
-    if (el === document.activeElement) return;
-    const typed = String(ov[el.dataset.ov] ?? '').trim();
-    el.value = typed !== '' ? (money(round2(num(typed))) || typed) : money(auto[el.dataset.ov]);
-  });
+  showSummary(sheet, c, slip.ov, true);
   markRows();
   $('datePrint').textContent = thaiDate(slip.date);
   sheet.querySelectorAll('[data-k="code"]').forEach(el => el.classList.toggle('bad', !!el.value && !TRACK_RE.test(el.value)));

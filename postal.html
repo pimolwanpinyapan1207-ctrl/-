@@ -292,7 +292,13 @@ table.f.carry { border-top: 0; }
 .hist-scroll { overflow-x: auto; }
 .history .card-head .hint { margin-top: 2px; }
 .hist-tools { display: flex; flex-wrap: wrap; gap: 8px; }
-.hist-tools input, .hist-tools select { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 8px 12px; }
+.hist-tools input, .hist-tools select { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 12px; }
+/* history card: soft blue wash at the top fading into the card colour, header row tinted to match */
+.card.history { background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 15%, var(--surface)) 0, color-mix(in srgb, var(--accent) 6%, var(--surface)) 220px, var(--surface) 420px); }
+.history .card-head h2 { color: var(--accent); }
+.hist thead th { background: color-mix(in srgb, var(--accent) 11%, var(--surface)); color: var(--accent); }
+.hist thead th:first-child { border-top-left-radius: 8px; }
+.hist thead th:last-child { border-top-right-radius: 8px; }
 .hist-tools input { flex: 1 1 260px; min-width: 0; }
 .hist-tools select { flex: 0 1 200px; }
 /* month calendar: pick one month to see only its slips */

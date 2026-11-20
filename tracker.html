@@ -206,6 +206,13 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .parcel-list .who { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-right: 12px; min-width: 12em; }
 
 .history { display: grid; gap: 12px; }
+/* history: soft blue wash behind the month bar and search, fading into the page colour */
+.history { padding: 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 12%, var(--line));
+  background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 15%, var(--surface)) 0, color-mix(in srgb, var(--accent) 6%, var(--bg)) 200px, var(--bg) 380px); }
+.history .btn.small { background: var(--surface); }
+.history .hist-head input[type=search] { box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
+.history .hist-sum { color: color-mix(in srgb, var(--accent) 55%, var(--muted)); }
+@media print { .history { padding: 0; border: 0; background: none; } }
 .hist-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .hist-head input[type=search] { flex: 1 1 240px; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .hist-month { font-family: var(--display); font-weight: 600; font-size: 1.05rem; min-width: 9em; text-align: center; }
@@ -224,7 +231,7 @@ button.hist-month:disabled { cursor: default; background: transparent; border-co
 .hist-cal .dp-day.on .cnt { color: var(--accent-ink); }
 #histAll[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .hist-sum { margin: 0; color: var(--muted); font-size: .9rem; }
-.hist-day { font-size: .9rem; font-weight: 600; color: var(--muted); margin: 6px 0 -2px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.hist-day { font-size: .9rem; font-weight: 600; color: var(--accent); margin: 6px 0 -2px; padding: 6px 12px; border-radius: 8px; border-left: 4px solid color-mix(in srgb, var(--accent) 45%, var(--surface)); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), transparent 80%); }
 .rep-text { width: 100%; min-height: 200px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-family: var(--mono); font-size: .85rem; }
 
 .empty-state { text-align: center; padding: 48px 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; gap: 10px; justify-items: center; }

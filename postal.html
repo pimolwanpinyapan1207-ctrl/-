@@ -339,6 +339,14 @@ table.f.carry { border-top: 0; }
 .hist tr.month td { background: var(--bg); font-weight: 600; font-size: .85rem; color: var(--muted); padding-top: 10px; }
 .hist tr.month td.num { color: var(--ink); }
 .hist .who { max-width: 260px; }
+/* company name as a soft coloured tag, one colour per company */
+.co-tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .85rem; font-weight: 500; white-space: nowrap; background: #eef0f3; color: #4a5260; }
+.co-0 { background: #e3eefb; color: #2f5b8a; }
+.co-1 { background: #e4f4ea; color: #2f6b45; }
+.co-2 { background: #fdf0dc; color: #8a5a1c; }
+.co-3 { background: #f1e8f8; color: #66408a; }
+.co-4 { background: #fbe6e8; color: #8a3b45; }
+.co-5 { background: #e0f3f3; color: #2a6b6b; }
 .hist .who small { display: block; color: var(--muted); font-size: .8rem; }
 .hist .found { display: block; color: var(--accent); font-size: .8rem; }
 .empty { color: var(--muted); text-align: center; padding: 18px; }
@@ -1181,6 +1189,13 @@ function shiftMonths(iso, n) {  // same day n months away, clamped to the month'
   const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
+// the 5 usual companies keep fixed colours; any other name gets one picked from its letters
+function coTag(name) {
+  if (!name) return '<span class="hint">-</span>';
+  let i = COMPANIES.findIndex(c => name.includes(c));
+  if (i < 0) i = [...name].reduce((a, ch) => a + ch.codePointAt(0), 0) % 6;
+  return `<span class="co-tag co-${i}">${esc(name)}</span>`;
+}
 function renderHistory() {
   const q = normTh($('histQ').value), sel = $('histMonth');
   // period: one day ("d:yyyy-mm-dd") or one month ("m:yyyy-mm") from the calendar, the last 3 or 6 months from today, or everything ("")
@@ -1219,7 +1234,7 @@ function renderHistory() {
     const first = r.items[0]?.to || '';
     const more = r.items.length > 1 ? `และอีก ${r.items.length - 1} รายการ` : '';
     html += `<tr class="${r.s.id === slip.id ? 'current' : ''}">
-      <td>${esc(coOf(r.s) || '-')}</td>
+      <td>${coTag(coOf(r.s))}</td>
       <td>${esc(thaiDate(r.s.date, 'short'))}</td>
       <td class="who">${esc(first) || '<span class="hint">-</span>'}${more ? `<small>${more}</small>` : ''}${r.found ? `<span class="found">พบ: ${esc(r.found)}</span>` : ''}</td>
       <td class="num">${r.c.pieces}</td>

@@ -347,6 +347,16 @@ table.f.carry { border-top: 0; }
 .co-3 { background: linear-gradient(135deg, #f7efff, #e4d4f4); color: #66408a; }
 .co-4 { background: linear-gradient(135deg, #fff0f1, #f7d5da); color: #8a3b45; }
 .co-5 { background: linear-gradient(135deg, #e9fafa, #cdeceb); color: #2a6b6b; }
+/* whole row tinted in the company's colour, fading left to right, with a coloured bar on the left */
+.hist tr.row-co { --rc: transparent; --rb: transparent; background: linear-gradient(90deg, var(--rc), rgba(255,255,255,0) 85%); }
+.hist tr.row-co td:first-child { box-shadow: inset 4px 0 0 var(--rb); }
+.hist tr.row-co .co-tag { background: rgba(255,255,255,.75); box-shadow: inset 0 0 0 1px var(--rb); }
+.hist tr.row-co-0 { --rc: #dde9fa; --rb: #8db3e2; }
+.hist tr.row-co-1 { --rc: #dcf1e3; --rb: #86c79c; }
+.hist tr.row-co-2 { --rc: #fcebcf; --rb: #e8b66e; }
+.hist tr.row-co-3 { --rc: #ece0f8; --rb: #b393d6; }
+.hist tr.row-co-4 { --rc: #fbe1e4; --rb: #e19aa4; }
+.hist tr.row-co-5 { --rc: #d9f1f0; --rb: #7fc4c2; }
 .hist .who small { display: block; color: var(--muted); font-size: .8rem; }
 .hist .found { display: block; color: var(--accent); font-size: .8rem; }
 .empty { color: var(--muted); text-align: center; padding: 18px; }
@@ -1190,11 +1200,13 @@ function shiftMonths(iso, n) {  // same day n months away, clamped to the month'
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
 // the 5 usual companies keep fixed colours; any other name gets one picked from its letters
+function coIdx(name) {
+  if (!name) return -1;
+  const i = COMPANIES.findIndex(c => name.includes(c));
+  return i >= 0 ? i : [...name].reduce((a, ch) => a + ch.codePointAt(0), 0) % 6;
+}
 function coTag(name) {
-  if (!name) return '<span class="hint">-</span>';
-  let i = COMPANIES.findIndex(c => name.includes(c));
-  if (i < 0) i = [...name].reduce((a, ch) => a + ch.codePointAt(0), 0) % 6;
-  return `<span class="co-tag co-${i}">${esc(name)}</span>`;
+  return name ? `<span class="co-tag co-${coIdx(name)}">${esc(name)}</span>` : '<span class="hint">-</span>';
 }
 function renderHistory() {
   const q = normTh($('histQ').value), sel = $('histMonth');
@@ -1233,7 +1245,8 @@ function renderHistory() {
     }
     const first = r.items[0]?.to || '';
     const more = r.items.length > 1 ? `และอีก ${r.items.length - 1} รายการ` : '';
-    html += `<tr class="${r.s.id === slip.id ? 'current' : ''}">
+    const ci = coIdx(coOf(r.s));
+    html += `<tr class="${[r.s.id === slip.id && 'current', ci >= 0 && 'row-co row-co-' + ci].filter(Boolean).join(' ')}">
       <td>${coTag(coOf(r.s))}</td>
       <td>${esc(thaiDate(r.s.date, 'short'))}</td>
       <td class="who">${esc(first) || '<span class="hint">-</span>'}${more ? `<small>${more}</small>` : ''}${r.found ? `<span class="found">พบ: ${esc(r.found)}</span>` : ''}</td>

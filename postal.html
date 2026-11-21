@@ -1078,6 +1078,7 @@ async function save() {
       }
     } catch { /* offline: saved as it is on screen */ }
   }
+  sortForPrint();  // saved in เลขที่บริการ order, so every computer that opens it sees the same order
   slip.savedAt = Date.now();
   slip.base = filledUids(slip.items);
   const copy = JSON.parse(JSON.stringify(slip));
@@ -1110,6 +1111,7 @@ function openSlip(id) {
 function loadSlip(s) {
   slip = JSON.parse(JSON.stringify(s));
   slip.items = giveUids(padItems(slip.items));
+  sortForPrint();  // slips saved before sorting-on-save open in เลขที่บริการ order too
   slip.base = filledUids(slip.items);
   slip.intl = slip.intl || {};
   dirty = false;

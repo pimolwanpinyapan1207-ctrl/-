@@ -1692,9 +1692,11 @@ body.on-postal .wrap { display: none; }
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
     const csv = "﻿" + table.map((row) => row.map(q).join(",")).join("\r\n");
     try {
-      const dl = window.claude && claude.use ? await claude.use("downloads") : null;
-      if (dl) return void (await dl.save({ filename, data: csv }));
-      // outside claude.ai: an ordinary browser download
+      // on claude.ai use its downloads; if that is not allowed for this viewer, fall back to a browser download
+      try {
+        const dl = window.claude && claude.use ? await claude.use("downloads") : null;
+        if (dl) return void (await dl.save({ filename, data: csv }));
+      } catch (err) { if (err && err.code === "declined") return; }
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a"); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);

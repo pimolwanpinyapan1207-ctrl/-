@@ -3,5 +3,9 @@
   "buildCommand": null,
   "installCommand": null,
   "outputDirectory": ".",
-  "rewrites": [{ "source": "/", "destination": "/tracker.html" }]
+  "rewrites": [{ "source": "/", "destination": "/tracker.html" }],
+  "headers": [
+    { "source": "/(.*)\\.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+    { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
 }

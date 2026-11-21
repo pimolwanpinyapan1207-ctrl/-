@@ -142,6 +142,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .report { display: grid; gap: 16px; }
 .rep-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .datebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rep-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 .rep-head input[type=search] { flex: 1 1 100%; min-width: 0; border: 1px solid var(--line); }
 /* date boxes show day/month/year whatever the browser language; the native field stays for the picker */
 /* in-page date picker */
@@ -631,7 +632,8 @@ body.on-postal .wrap { display: none; }
         <button class="btn small" type="button" id="nextDay" aria-label="วันถัดไป">›</button>
         <button class="btn small" type="button" id="todayBtn">วันนี้</button>
       </div>
-      <button class="btn" type="button" id="copyReport">คัดลอกรายงานเป็นข้อความ</button>
+      <span class="rep-acts"><button class="btn" type="button" id="xlsReport">ดาวน์โหลด Excel</button>
+      <button class="btn" type="button" id="copyReport">คัดลอกรายงานเป็นข้อความ</button></span>
       <input type="search" id="repQ" autocomplete="off" placeholder="พิมพ์ชื่อ เพื่อดูรายงานเฉพาะคนนั้น (ลูกค้า ผู้ส่ง หรือผู้รับ)" aria-label="ดูรายงานเฉพาะชื่อ">
     </div>
     <h2 class="rep-title" id="repTitle"></h2>
@@ -1674,13 +1676,22 @@ body.on-postal .wrap { display: none; }
   function toast(msg, ms) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tTimer); tTimer = setTimeout(() => (t.hidden = true), ms || 2200); }
 
   // ---------- export ----------
-  $("exportBtn").onclick = async () => {
-    const head = ["เลขที่เอกสาร", "ลูกค้า", "บริษัท", "รายการ", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
+  const EXPORT_HEAD = ["เลขที่เอกสาร", "ลูกค้า", "บริษัท", "รายการ", "เอกสารในชุด", "วันที่", "วันที่ส่งออก", "วิธีส่ง", "เลขพัสดุ", "ผู้ส่ง", "วันที่ถึงลูกค้า", "ผู้รับ", "สถานะ", "หมายเหตุ"];
+  const exportRow = (r) => [r.docNo, r.customer, r.company, listsText(r), itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note];
+  $("exportBtn").onclick = () => saveCsv("ชุดเบิก-" + today() + ".csv", [EXPORT_HEAD].concat(rows.map(exportRow)));
+  // daily report, only the name typed in the box (if any): one row per set, report section first
+  $("xlsReport").onclick = () => {
+    const D = $("repDate").value || today(), d = reportData(D), who = repQ();
+    const secs = [["ส่งออก", d.shipped], ["ลูกค้าได้รับ", d.delivered], ["เกินกำหนด ยังไม่ถึงลูกค้า", d.late], ["ยังไม่ส่งออก", d.pending]];
+    const body = secs.flatMap(([name, list]) => list.map((r) => [name].concat(exportRow(r))));
+    if (!body.length) return toast("ไม่มีชุดเบิก" + (who ? "ของ “" + who + "” " : "") + "ในวันนั้น");
+    const title = ["รายงานชุดเบิก " + (who ? "ของ " + who + " " : "") + longDate(D)];
+    saveCsv("รายงาน-" + (who ? who.replace(/[\\/:*?"<>|]/g, "-") + "-" : "") + D + ".csv", [title, [], ["หมวด"].concat(EXPORT_HEAD)].concat(body));
+  };
+  async function saveCsv(filename, table) {
     const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const lines = [head.map(q).join(",")].concat(rows.map((r) => [r.docNo, r.customer, r.company, listsText(r), itemText(r).join(" / "), r.preparedDate, r.shippedDate, r.method, r.tracking, r.sender, r.deliveredDate, r.receiver, LABEL[statusOf(r)], r.note].map(q).join(",")));
-    const csv = "﻿" + lines.join("\r\n");
+    const csv = "﻿" + table.map((row) => row.map(q).join(",")).join("\r\n");
     try {
-      const filename = "ชุดเบิก-" + today() + ".csv";
       const dl = window.claude && claude.use ? await claude.use("downloads") : null;
       if (dl) return void (await dl.save({ filename, data: csv }));
       // outside claude.ai: an ordinary browser download
@@ -1688,7 +1699,7 @@ body.on-postal .wrap { display: none; }
       const a = document.createElement("a"); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) { if (!err || err.code !== "declined") toast("ดาวน์โหลดไม่สำเร็จ"); }
-  };
+  }
 
   // ---------- data ----------
   // Outside claude.ai (Vercel, GitHub, a local file) there is no shared db: keep rows in this browser instead

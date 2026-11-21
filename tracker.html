@@ -142,6 +142,7 @@ a.btn { text-decoration: none; color: var(--accent); display: inline-flex; align
 .report { display: grid; gap: 16px; }
 .rep-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
 .datebar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rep-head input[type=search] { flex: 1 1 100%; min-width: 0; border: 1px solid var(--line); }
 /* date boxes show day/month/year whatever the browser language; the native field stays for the picker */
 /* in-page date picker */
 .dp { position: relative; display: block; }
@@ -453,9 +454,9 @@ body { margin: 0; font-size: 15.5px; line-height: 1.6; }
 
 /* search + late-days */
 .tools { gap: 10px 14px; }
-.tools input[type=search], .hist-head input[type=search] { padding: 11px 14px 11px 40px; border-radius: 12px; border-color: var(--line); box-shadow: var(--shadow);
+.tools input[type=search], .hist-head input[type=search], .rep-head input[type=search] { padding: 11px 14px 11px 40px; border-radius: 12px; border-color: var(--line); box-shadow: var(--shadow);
   background: var(--surface) 14px center / 17px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235d6878' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E"); }
-.tools input[type=search]:focus, .hist-head input[type=search]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.tools input[type=search]:focus, .hist-head input[type=search]:focus, .rep-head input[type=search]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 .tools label { padding: 6px 6px 6px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .tools select { border-radius: 8px; padding: 5px 8px; background: var(--bg); }
 
@@ -631,6 +632,8 @@ body.on-postal .wrap { display: none; }
         <button class="btn small" type="button" id="todayBtn">วันนี้</button>
       </div>
       <button class="btn" type="button" id="copyReport">คัดลอกรายงานเป็นข้อความ</button>
+      <input type="search" id="repQ" list="repNames" autocomplete="off" placeholder="พิมพ์ชื่อ เพื่อดูรายงานเฉพาะคนนั้น (ลูกค้า ผู้ส่ง หรือผู้รับ)" aria-label="ดูรายงานเฉพาะชื่อ">
+      <datalist id="repNames"></datalist>
     </div>
     <h2 class="rep-title" id="repTitle"></h2>
     <div class="rep-stats" id="repStats"></div>
@@ -908,12 +911,15 @@ body.on-postal .wrap { display: none; }
   const longDate = (s) => parse(s).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const createdDay = (r) => r.preparedDate || String(r.createdAt || "").slice(0, 10) || "0000-00-00";
 
+  const repQ = () => $("repQ").value.trim();
+  const repMatch = (r, q) => !q || [r.customer, r.sender, r.receiver, r.company, r.docNo].join(" ").toLowerCase().includes(q.toLowerCase());
   function reportData(D) {
-    const shipped = rows.filter((r) => r.shippedDate === D);
-    const delivered = rows.filter((r) => r.deliveredDate === D);
-    const added = rows.filter((r) => createdDay(r) === D);
-    const pending = rows.filter((r) => createdDay(r) <= D && (!r.shippedDate || r.shippedDate > D));
-    const transit = rows.filter((r) => r.shippedDate && r.shippedDate <= D && (!r.deliveredDate || r.deliveredDate > D));
+    const q = repQ(), src = rows.filter((r) => repMatch(r, q));
+    const shipped = src.filter((r) => r.shippedDate === D);
+    const delivered = src.filter((r) => r.deliveredDate === D);
+    const added = src.filter((r) => createdDay(r) === D);
+    const pending = src.filter((r) => createdDay(r) <= D && (!r.shippedDate || r.shippedDate > D));
+    const transit = src.filter((r) => r.shippedDate && r.shippedDate <= D && (!r.deliveredDate || r.deliveredDate > D));
     const late = transit.filter((r) => daysBetween(r.shippedDate, D) > lateDays());
     const docs = {};
     shipped.forEach((r) => (r.items || []).filter((i) => !FLAGS.has(i) && !NOQTY.has(i)).forEach((i) => { docs[i] = (docs[i] || 0) + qtyOf(r, i); }));
@@ -948,7 +954,9 @@ body.on-postal .wrap { display: none; }
     if (!$("repDate").value) $("repDate").value = today();
     const D = $("repDate").value;
     const d = reportData(D);
-    $("repTitle").textContent = "รายงานชุดเบิก " + longDate(D) + (D === today() ? " (วันนี้)" : "");
+    $("repTitle").textContent = "รายงานชุดเบิก " + (repQ() ? "ของ “" + repQ() + "” " : "") + longDate(D) + (D === today() ? " (วันนี้)" : "");
+    const names = [...new Set(rows.flatMap((r) => [r.customer, r.sender, r.receiver]).map((n) => String(n || "").trim()).filter(Boolean))].sort((x, y) => x.localeCompare(y, "th"));
+    $("repNames").replaceChildren(...names.map((n) => { const o = document.createElement("option"); o.value = n; return o; }));
 
     const stats = [
       ["ส่งออก", d.shipped.length, "move"], ["ลูกค้าได้รับ", d.delivered.length, "done"],
@@ -1001,7 +1009,7 @@ body.on-postal .wrap { display: none; }
   }
 
   function reportText(D, d) {
-    const L = ["รายงานชุดเบิก " + longDate(D), ""];
+    const L = ["รายงานชุดเบิก " + (repQ() ? "ของ " + repQ() + " " : "") + longDate(D), ""];
     L.push("ส่งออก " + d.shipped.length + " ชุด");
     d.shipped.forEach((r) => L.push("- " + r.docNo + " " + r.customer + (r.tracking ? " EMS " + r.tracking : "")));
     if (Object.keys(d.docs).length) L.push("  เอกสาร: " + Object.entries(d.docs).map(([i, n]) => qtyLabel(i, n)).join(", "));
@@ -1653,6 +1661,7 @@ body.on-postal .wrap { display: none; }
   $("nextDay").onclick = () => shiftDay(1);
   $("todayBtn").onclick = () => { $("repDate").value = today(); renderReport(); };
   $("repDate").addEventListener("change", renderReport);
+  $("repQ").addEventListener("input", renderReport);
   $("copyReport").onclick = async () => {
     const D = $("repDate").value || today();
     const txt = reportText(D, reportData(D));

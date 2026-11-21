@@ -632,8 +632,7 @@ body.on-postal .wrap { display: none; }
         <button class="btn small" type="button" id="todayBtn">วันนี้</button>
       </div>
       <button class="btn" type="button" id="copyReport">คัดลอกรายงานเป็นข้อความ</button>
-      <input type="search" id="repQ" list="repNames" autocomplete="off" placeholder="พิมพ์ชื่อ เพื่อดูรายงานเฉพาะคนนั้น (ลูกค้า ผู้ส่ง หรือผู้รับ)" aria-label="ดูรายงานเฉพาะชื่อ">
-      <datalist id="repNames"></datalist>
+      <input type="search" id="repQ" autocomplete="off" placeholder="พิมพ์ชื่อ เพื่อดูรายงานเฉพาะคนนั้น (ลูกค้า ผู้ส่ง หรือผู้รับ)" aria-label="ดูรายงานเฉพาะชื่อ">
     </div>
     <h2 class="rep-title" id="repTitle"></h2>
     <div class="rep-stats" id="repStats"></div>
@@ -955,8 +954,6 @@ body.on-postal .wrap { display: none; }
     const D = $("repDate").value;
     const d = reportData(D);
     $("repTitle").textContent = "รายงานชุดเบิก " + (repQ() ? "ของ “" + repQ() + "” " : "") + longDate(D) + (D === today() ? " (วันนี้)" : "");
-    const names = [...new Set(rows.flatMap((r) => [r.customer, r.sender, r.receiver]).map((n) => String(n || "").trim()).filter(Boolean))].sort((x, y) => x.localeCompare(y, "th"));
-    $("repNames").replaceChildren(...names.map((n) => { const o = document.createElement("option"); o.value = n; return o; }));
 
     const stats = [
       ["ส่งออก", d.shipped.length, "move"], ["ลูกค้าได้รับ", d.delivered.length, "done"],
